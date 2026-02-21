@@ -1,27 +1,44 @@
 'use client';
 import { useEffect, useRef, useState } from "react";
 
+// Define the shape of a single option (Board or Sprint)
+interface DropdownOption {
+  id: number | string;
+  name: string;
+  [key: string]: any; // Allows for other properties like 'type' or 'state'
+}
+
+// Define the Props interface
+interface SearchableDropdownProps {
+  options: DropdownOption[];
+  label: keyof DropdownOption; // Ensures the label is a valid key of the option
+  idKey: keyof DropdownOption; // Ensures the idKey is a valid key of the option
+  selectedVal: string;
+  handleChange: (option: DropdownOption | null) => void;
+}
+
 const SearchableDropdown = ({
   options,
-  label, // e.g., "name"
-  idKey, // e.g., "id"
+  label,
+  idKey,
   selectedVal,
   handleChange
-}) => {
+}: SearchableDropdownProps) => {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const toggle = (e) => setIsOpen(e && e.target === inputRef.current);
+    const toggle = (e: MouseEvent) => {
+      setIsOpen(e && e.target === inputRef.current);
+    };
     document.addEventListener("click", toggle);
     return () => document.removeEventListener("click", toggle);
   }, []);
 
-  const selectOption = (option) => {
+  const selectOption = (option: DropdownOption) => {
     setQuery("");
-    // Pass the whole option back so we have access to the ID and Label
-    handleChange(option); 
+    handleChange(option);
     setIsOpen(false);
   };
 
@@ -31,11 +48,10 @@ const SearchableDropdown = ({
     return "";
   };
 
-  const filter = (options) => {
-    return options.filter(
-      (option) => option[label].toLowerCase().indexOf(query.toLowerCase()) > -1
-    );
-  };
+  const filteredOptions = options.filter(
+    (option) => 
+      option[label]?.toString().toLowerCase().includes(query.toLowerCase())
+  );
 
   return (
     <div className="dropdown w-full relative">
@@ -43,19 +59,16 @@ const SearchableDropdown = ({
         <input
           ref={inputRef}
           type="text"
-          placeholder={`Search ${label}...`}
+          placeholder={`Search ${String(label)}...`}
           className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
           value={getDisplayValue()}
-          onChange={(e) => {
-            setQuery(e.target.value);
-          }}
+          onChange={(e) => setQuery(e.target.value)}
         />
-        <div className={`arrow ${isOpen ? "open" : ""}`}></div>
       </div>
 
       {isOpen && (
         <div className="options absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-          {filter(options).map((option, index) => (
+          {filteredOptions.map((option, index) => (
             <div
               key={`${option[idKey]}-${index}`}
               onClick={() => selectOption(option)}
@@ -66,7 +79,7 @@ const SearchableDropdown = ({
               {option[label]}
             </div>
           ))}
-          {filter(options).length === 0 && (
+          {filteredOptions.length === 0 && (
             <div className="p-3 text-gray-500">No results found</div>
           )}
         </div>
