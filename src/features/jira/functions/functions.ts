@@ -35,11 +35,11 @@ export async function getBoardData() {
       isLast = true;
     }
   }
-  console.log("Final dashboard data:", data);
-  console.log("Total dashboards fetched:", data.length);
+  return data;
 }
 
 //getBoardData();
+
 
 export async function getSprints(boardId: number) {
   let sprintData = [];
