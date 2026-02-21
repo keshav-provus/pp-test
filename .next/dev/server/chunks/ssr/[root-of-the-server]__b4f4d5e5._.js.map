@@ -2,5 +2,5 @@
   "version": 3,
   "sources": [],
   "sections": [
-    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///Users/admin/work/pp-test/src/app/page.tsx"],"sourcesContent":["// TODO: Assign to team member\\nexport src/app/page.tsx;\nexport default function HomePage() {\n  return (\n    <>\n      <p>Home Page</p>\n    </>\n  )\n}"],"names":[],"mappings":"AAAA,wDAAwD;;;;;;;AACzC,SAAS;IACtB,qBACE;kBACE,cAAA,8OAAC;sBAAE;;;;;;;AAGT"}}]
+    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///Users/priyanshisen/Desktop/jira%20api/pp-test-2/src/app/page.tsx"],"sourcesContent":["// TODO: Assign to team member\\nexport src/app/page.tsx;\nexport default function HomePage() {\n  return (\n    <>\n      <p>Home Page</p>\n    </>\n  )\n}"],"names":[],"mappings":"AAAA,wDAAwD;;;;;;;AACzC,SAAS;IACtB,qBACE;kBACE,cAAA,8OAAC;sBAAE;;;;;;;AAGT"}}]
 }
