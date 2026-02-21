@@ -1,245 +1,144 @@
-export async function getBoardData() {
-  let data = [];
-  let isLast = false;
-  let startAt = 0;
-  while (isLast === false) {
-    try {
-      const response = await fetch(
-        `${process.env.JIRA_BASE_URL}/rest/agile/1.0/board?startAt=${startAt}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Basic ${btoa(
-              `${process.env.JIRA_USER}:${process.env.JIRA_API_KEY}`,
-            )}`,
-            Accept: "application/json",
-          },
-        },
-      );
-      if (!response.ok) {
-        throw new Error(`Error fetching dashboards: ${response.statusText}`);
-      }
-      const dashboardData = await response.json();
-      data = [
-        ...data,
-        ...dashboardData.values.map((dashboard) => ({
-          id: dashboard.id,
-          name: dashboard.name,
-          type: dashboard.type,
-        })),
-      ];
-      isLast = dashboardData.isLast;
-      startAt += 50;
-    } catch (error) {
-      console.error("Error:", error);
-      isLast = true;
-    }
-  }
-  return data;
-}
+// lib/jira.ts
 
-//getBoardData();
-
-
-export async function getSprints(boardId: number) {
-  let sprintData = [];
-  let isLast = false;
-  let startAt = 0;
-  while (isLast === false) {
-    try {
-      const response = await fetch(
-        `${process.env.JIRA_BASE_URL}/rest/agile/1.0/board/${boardId}/sprint?startAt=${startAt}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Basic ${btoa(
-              `${process.env.JIRA_USER}:${process.env.JIRA_API_KEY}`,
-            )}`,
-            Accept: "application/json",
-          },
-        },
-      );
-      if (!response.ok) {
-        throw new Error(`Error fetching dashboards: ${response.statusText}`);
-      }
-      const jsonData = await response.json();
-      sprintData = [
-        ...sprintData,
-        ...jsonData.values.map((sprint) => ({
-          id: sprint.id,
-          name: sprint.name,
-        })),
-      ];
-      isLast = jsonData.isLast;
-      startAt += 50;
-    } catch (error) {
-      console.error("Error:", error);
-      isLast = true;
-    }
-  }
-  console.log("Final sprint data:", sprintData);
-}
-
-//getSprints(388);
-
-export async function getIssues(sprintId: number) {
-  let issueData = [];
-  let isLast = false;
-  let startAt = 0;
-  while (isLast === false) {
-    try {
-      const response = await fetch(
-        `${process.env.JIRA_BASE_URL}/rest/agile/1.0/sprint/${sprintId}/issue?startAt=${startAt}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Basic ${btoa(
-              `${process.env.JIRA_USER}:${process.env.JIRA_API_KEY}`,
-            )}`,
-            Accept: "application/json",
-          },
-        },
-      );
-      if (!response.ok) {
-        throw new Error(`Error fetching dashboards: ${response.statusText}`);
-      }
-      const jsonData = await response.json();
-      issueData = [
-        ...issueData,
-        ...jsonData.issues.map((issue) => ({
-          id: issue.id,
-          key: issue.key,
-          summary: issue.fields.summary,
-        })),
-      ];
-      //console.log('Fetched issues:', jsonData);
-      isLast = jsonData.isLast;
-      startAt += 50;
-    } catch (error) {
-      console.error("Error:", error);
-      isLast = true;
-    }
-  }
-  console.log("Final issue data:", issueData);
-}
-
-//getIssues(1810);
-
-export async function getIssueDetails(issueId: number) {
-  const issueDetails = {};
-  try {
-    const response = await fetch(
-      `${process.env.JIRA_BASE_URL}/rest/api/3/issue/${issueId}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Basic ${btoa(
-            `${process.env.JIRA_USER}:${process.env.JIRA_API_KEY}`,
-          )}`,
-          Accept: "application/json",
-        },
-      },
-    );
-    if (!response.ok) {
-      throw new Error(`Error fetching issue details: ${response.statusText}`);
-    }
-    const issueDetails = await response.json();
-    console.log("Issue details:", issueDetails);
-    issueDetails["id"] = issueDetails.id;
-    issueDetails["key"] = issueDetails.key;
-    issueDetails["status"] = issueDetails.fields.status.name;
-    issueDetails["assignee"] = issueDetails.fields.assignee
-      ? issueDetails.fields.assignee.displayName
-      : "Unassigned";
-    issueDetails["reporter"] = issueDetails.fields.reporter
-      ? issueDetails.fields.reporter.displayName
-      : "Unknown";
-    issueDetails["creator"] = issueDetails.fields.creator
-      ? issueDetails.fields.creator.displayName
-      : "Unknown";
-    issueDetails["summary"] = issueDetails.fields.summary;
-    issueDetails["description"] = adfToPlainText(issueDetails.fields.description);
-    console.log("Final issue details:", issueDetails);
-
-    console.log(issueDetails);
-  } catch (error) {
-    console.error("Error:", error);
-  }
-}
-
-//getIssueDetails(50345);
-
-export async function setIssueStoryPoints(
-  issueId: number,
-  storyPoints: number,
-) {
-  try {
-    const response = await fetch(
-      `${process.env.JIRA_BASE_URL}/rest/api/3/issue/${issueId}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Basic ${btoa(
-            `${process.env.JIRA_USER}:${process.env.JIRA_API_KEY}`,
-          )}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fields: {
-            customfield_10026: storyPoints,
-          },
-        }),
-      },
-    );
-    if (!response.ok) {
-      throw new Error(`Error setting story points: ${response.statusText}`);
-    }
-    console.log("Story points set successfully");
-  } catch (error) {
-    console.error("Error:", error);
-  }
-}
-
-//setIssueStoryPoints(50345, 8);
-
-type ADFNode = {
-  type: string;
-  text?: string;
-  content?: ADFNode[];
-  [key: string]: any;
+/**
+ * Shared configuration for Jira API requests.
+ * Uses Buffer for Base64 encoding which is standard in Node.js/Vercel environments.
+ */
+const JIRA_CONFIG = {
+  baseUrl: process.env.JIRA_BASE_URL,
+  headers: {
+    Authorization: `Basic ${Buffer.from(
+      `${process.env.JIRA_USER}:${process.env.JIRA_API_KEY}`
+    ).toString("base64")}`,
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
 };
 
-function adfToPlainText(node: ADFNode | null | undefined): string {
-  if (!node) return "";
+/**
+ * Generic helper to handle paginated Jira Agile requests.
+ */
+async function fetchPaginatedData<T>(endpoint: string, dataKey: string): Promise<T[]> {
+  let allData: T[] = [];
+  let isLast = false;
+  let startAt = 0;
 
-  const blocks = new Set([
-    "paragraph",
-    "heading",
-    "bulletList",
-    "orderedList",
-    "listItem",
-    "panel",
-    "blockquote",
-  ]);
+  while (!isLast) {
+    const url = `${JIRA_CONFIG.baseUrl}${endpoint}${endpoint.includes('?') ? '&' : '?'}startAt=${startAt}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: JIRA_CONFIG.headers,
+      next: { revalidate: 60 }, // Optional: Next.js caching
+    });
 
-  const parts: string[] = [];
-
-  function walk(n: ADFNode) {
-    if (n.type === "text") {
-      parts.push(n.text || "");
-      return;
+    if (!response.ok) {
+      throw new Error(`Jira API error [${response.status}]: ${response.statusText}`);
     }
 
-    if (Array.isArray(n.content)) {
-      n.content.forEach((child) => walk(child));
+    const json = await response.json();
+    const values = json[dataKey] || [];
+    allData = [...allData, ...values];
+    
+    isLast = json.isLast ?? true;
+    startAt += values.length || 50;
+  }
 
-      if (blocks.has(n.type)) {
-        parts.push("\n");
-      }
+  return allData;
+}
+
+/**
+ * Fetches all available boards.
+ */
+export async function getBoardData() {
+  const boards = await fetchPaginatedData<any>("/rest/agile/1.0/board", "values");
+  return boards.map(board => ({
+    id: board.id,
+    name: board.name,
+    type: board.type,
+  }));
+}
+
+/**
+ * Fetches sprints for a specific board.
+ */
+export async function getSprints(boardId: number | string) {
+  const sprints = await fetchPaginatedData<any>(`/rest/agile/1.0/board/${boardId}/sprint`, "values");
+  return sprints.map(sprint => ({
+    id: sprint.id,
+    name: sprint.name,
+    state: sprint.state,
+  }));
+}
+
+/**
+ * Fetches issues for a specific sprint.
+ */
+export async function getIssues(sprintId: number | string) {
+  const issues = await fetchPaginatedData<any>(`/rest/agile/1.0/sprint/${sprintId}/issue`, "issues");
+  return issues.map(issue => ({
+    id: issue.id,
+    key: issue.key,
+    summary: issue.fields.summary,
+  }));
+}
+
+/**
+ * Fetches detailed information for a single issue.
+ */
+export async function getIssueDetails(issueId: number | string) {
+  const response = await fetch(`${JIRA_CONFIG.baseUrl}/rest/api/3/issue/${issueId}`, {
+    headers: JIRA_CONFIG.headers,
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch issue details");
+  const data = await response.json();
+
+  return {
+    id: data.id,
+    key: data.key,
+    status: data.fields.status.name,
+    assignee: data.fields.assignee?.displayName || "Unassigned",
+    reporter: data.fields.reporter?.displayName || "Unknown",
+    summary: data.fields.summary,
+    description: adfToPlainText(data.fields.description),
+    storyPoints: data.fields.customfield_10026 || null,
+  };
+}
+
+/**
+ * Updates story points for a Jira issue (Server Action compatible).
+ */
+export async function setIssueStoryPoints(issueId: number | string, storyPoints: number) {
+  const response = await fetch(`${JIRA_CONFIG.baseUrl}/rest/api/3/issue/${issueId}`, {
+    method: "PUT",
+    headers: JIRA_CONFIG.headers,
+    body: JSON.stringify({
+      fields: {
+        customfield_10026: storyPoints,
+      },
+    }),
+  });
+
+  if (!response.ok) throw new Error("Failed to update story points");
+  return { success: true };
+}
+
+/**
+ * Utility to convert Atlassian Document Format (ADF) to plain text.
+ */
+function adfToPlainText(node: any): string {
+  if (!node) return "";
+  const parts: string[] = [];
+  const blocks = new Set(["paragraph", "heading", "listItem"]);
+
+  function walk(n: any) {
+    if (n.type === "text") parts.push(n.text || "");
+    if (Array.isArray(n.content)) {
+      n.content.forEach(walk);
+      if (blocks.has(n.type)) parts.push("\n");
     }
   }
 
   walk(node);
-
-  return parts.join("").replace(/\s+$/, "");
+  return parts.join("").trim();
 }
