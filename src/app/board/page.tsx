@@ -1,6 +1,6 @@
 // app/poker/page.tsx
 import { getBoardData } from "@/features/jira/functions/functions";
-import BoardSelector from "@/jira/components/BoardSelector";
+import BoardSelector from "../../features/jira/components/BoardSelector";
 
 export default async function PokerPage() {
   const boards = await getBoardData();
