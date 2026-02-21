@@ -1,10 +1,23 @@
 'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SearchableDropdown from '../../../components/searchable-dropdown';
 
-export default function BoardSelector({ boards }) {
-  const [selectedBoard, setSelectedBoard] = useState(null);
+// Define the shape of a single Board object based on your API logic
+interface Board {
+  id: number;
+  name: string;
+  type: string;
+}
+
+// Define the Props for the component
+interface BoardSelectorProps {
+  boards: Board[];
+}
+
+export default function BoardSelector({ boards }: BoardSelectorProps) {
+  const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
   const router = useRouter();
 
   const handleGoToSprints = () => {
