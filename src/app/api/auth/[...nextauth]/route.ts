@@ -10,17 +10,21 @@ declare module "next-auth" {
     }
 }
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Validation for environment variables to prevent runtime/deployment crashes
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.warn("Supabase credentials missing. Database sync will fail.");
+}
+
+const supabase = createClient(supabaseUrl || "", supabaseKey || "");
 
 export const authOptions: NextAuthOptions = {
     providers: [
         GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-            // ⚡️ THIS BLOCK FIXES THE "STICKY SESSION" ERROR
+            clientId: process.env.GOOGLE_CLIENT_ID || "",
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
             authorization: {
                 params: {
                     prompt: "select_account",
@@ -38,27 +42,20 @@ export const authOptions: NextAuthOptions = {
             },
         }),
     ],
-    // app/api/auth/[...nextauth]/route.ts
-
     session: {
         strategy: "jwt",
-        
         maxAge: 24 * 60 * 60, 
-
         updateAge: 24 * 60 * 60,
     },
     callbacks: {
         async signIn({ user, profile }) {
             const email = profile?.email;
-            if (!email) return false;
+            if (!email || !supabaseUrl) return false;
 
             const allowedDomains = ["provusinc.com", "provus.ai"];
             const isAllowed = allowedDomains.some(domain => email.endsWith(`@${domain}`));
 
-            if (!isAllowed) {
-                // Return false here triggers the redirect to /auth/error
-                return false;
-            }
+            if (!isAllowed) return false;
 
             try {
                 const { error } = await supabase
@@ -68,7 +65,7 @@ export const authOptions: NextAuthOptions = {
                         email: user.email,
                         display_name: user.name,
                         avatar_url: user.image,
-                        last_login: new Date().toISOString(), // Good practice to track login time
+                        last_login: new Date().toISOString(),
                     }, { onConflict: 'email' });
 
                 if (error) {
@@ -79,7 +76,6 @@ export const authOptions: NextAuthOptions = {
                 console.error("Critical Sync Error:", e);
                 return false;
             }
-
             return true;
         },
         async jwt({ token, user }) {
@@ -90,7 +86,7 @@ export const authOptions: NextAuthOptions = {
         },
         async session({ session, token }) {
             if (session.user && token.sub) {
-                session.user.id = token.sub;
+                session.user.id = token.sub as string;
             }
             return session;
         },

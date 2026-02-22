@@ -11,12 +11,33 @@ import { SprintSelector } from "@/components/pages/sprint-selector";
 import { IssueSelector } from "@/components/pages/issue-selector";
 import { getIssuesBySprint, getBoardBacklog } from "../../../services/jira";
 
+// Defined interfaces to satisfy TypeScript and prevent deployment failures
+interface JiraIssue {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  statusCategory: string;
+  column?: string;
+}
+
+interface Board {
+  id: string;
+  name: string;
+  type: string;
+}
+
+interface Sprint {
+  id: string;
+  name: string;
+}
+
 function DashboardContent() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [issues, setIssues] = useState<any[]>([]);
+  const [issues, setIssues] = useState<JiraIssue[]>([]);
   const [loading, setLoading] = useState(false);
   
   const step = searchParams.get('step') || 'setup';
@@ -24,23 +45,33 @@ function DashboardContent() {
   const sprintId = searchParams.get('sprintId');
 
   const refreshJiraData = async () => {
+    if (step !== 'launch') return;
+    
     setLoading(true);
     const toastId = toast.loading("Syncing Jira data...");
     try {
-      let freshIssues = [];
-      if (sprintId) {
+      let freshIssues: JiraIssue[] = [];
+      if (sprintId && boardId) {
         const [sData, bData] = await Promise.all([
           getIssuesBySprint(sprintId),
-          getBoardBacklog(boardId!)
+          getBoardBacklog(boardId)
         ]);
+        
         freshIssues = [
-          ...sData.map((i: any) => ({ ...i, column: i.statusCategory === "In Progress" ? "doing" : "todo" })),
-          ...bData.map((i: any) => ({ ...i, column: 'backlog' }))
+          ...sData.map((i: JiraIssue) => ({ 
+            ...i, 
+            column: i.statusCategory === "In Progress" ? "doing" : "todo" 
+          })),
+          ...bData.map((i: JiraIssue) => ({ 
+            ...i, 
+            column: 'backlog' 
+          }))
         ];
       }
       setIssues(freshIssues);
       toast.success("Board synced", { id: toastId });
     } catch (err) {
+      console.error(err);
       toast.error("Sync failed", { id: toastId });
     } finally {
       setLoading(false);
@@ -48,7 +79,10 @@ function DashboardContent() {
   };
 
   useEffect(() => {
-    if (step === 'launch' && (boardId || sprintId)) refreshJiraData();
+    if (step === 'launch' && (boardId || sprintId)) {
+      refreshJiraData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, boardId, sprintId]);
 
   const updateURL = (params: Record<string, string | null>) => {
@@ -57,7 +91,6 @@ function DashboardContent() {
       if (val) newParams.set(key, val);
       else newParams.delete(key);
     });
-    // Use an absolute path for the router to ensure stable navigation
     router.push(`/dashboard?${newParams.toString()}`);
   };
 
@@ -123,14 +156,14 @@ function DashboardContent() {
         {step === 'board' && (
           <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500">
             <h2 className="text-4xl font-black italic uppercase mb-8 tracking-tighter">Select Board</h2>
-            <BoardSelector onSelect={(b: any) => updateURL({ step: b.type === 'scrum' ? 'sprint' : 'launch', boardId: b.id })} />
+            <BoardSelector onSelect={(b: Board) => updateURL({ step: b.type === 'scrum' ? 'sprint' : 'launch', boardId: b.id })} />
           </div>
         )}
 
-        {step === 'sprint' && (
+        {step === 'sprint' && boardId && (
           <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500">
             <h2 className="text-4xl font-black italic uppercase mb-8 tracking-tighter">Select Sprint</h2>
-            <SprintSelector boardId={boardId!} onSelect={(s: any) => updateURL({ step: 'launch', sprintId: s.id })} />
+            <SprintSelector boardId={boardId} onSelect={(s: Sprint) => updateURL({ step: 'launch', sprintId: s.id })} />
           </div>
         )}
 
@@ -143,7 +176,11 @@ function DashboardContent() {
               </button>
             </div>
             <div className="flex-1 min-h-0">
-               <IssueSelector preFetchedIssues={issues} onSync={refreshJiraData} onLaunch={(issue: any) => router.push(`/poker/${issue.key}`)} />
+               <IssueSelector 
+                preFetchedIssues={issues} 
+                onSync={refreshJiraData} 
+                onLaunch={(issue: JiraIssue) => router.push(`/poker/${issue.key}`)} 
+               />
             </div>
           </div>
         )}
@@ -152,7 +189,6 @@ function DashboardContent() {
   );
 }
 
-// Wrap the content in a Suspense boundary to fix useSearchParams issues
 export default function DashboardPage() {
   return (
     <Suspense fallback={

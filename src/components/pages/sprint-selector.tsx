@@ -5,8 +5,15 @@ import { getSprints } from '../../../services/jira';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiSearch, FiCalendar, FiChevronRight, FiLoader } from 'react-icons/fi';
 
-export const SprintSelector = ({ boardId, onSelect }: { boardId: string, onSelect: (sprint: any) => void }) => {
-  const [sprints, setSprints] = useState<any[]>([]);
+type Sprint = {
+  id: string;
+  name: string;
+  state: string;
+  // Add other properties as needed
+};
+
+export const SprintSelector = ({ boardId, onSelect }: { boardId: string, onSelect: (sprint: Sprint) => void }) => {
+  const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
 

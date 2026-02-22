@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, DragEvent, useMemo, useEffect } from "react";
-import { FiPlay, FiCheckCircle, FiChevronDown, FiX, FiPlus, FiSearch } from "react-icons/fi";
+import React, { useState, DragEvent, useMemo, useEffect, Suspense } from "react";
+import { FiPlay, FiCheckCircle, FiX, FiPlus, FiSearch } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { 
@@ -12,16 +12,28 @@ import {
 } from "../../../services/jira"; 
 import { useSearchParams } from 'next/navigation';
 
-export const IssueSelector = ({ 
+// Explicit interfaces to prevent build-time type errors
+interface JiraIssue {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  statusCategory: string;
+  column?: string;
+}
+
+interface IssueSelectorProps {
+  preFetchedIssues: JiraIssue[];
+  onLaunch: (issue: JiraIssue) => void;
+  onSync: () => Promise<void>;
+}
+
+const IssueSelectorContent = ({ 
   preFetchedIssues, 
   onLaunch,
   onSync 
-}: { 
-  preFetchedIssues: any[], 
-  onLaunch: (issue: any) => void,
-  onSync: () => Promise<void> 
-}) => {
-  const [cards, setCards] = useState(preFetchedIssues);
+}: IssueSelectorProps) => {
+  const [cards, setCards] = useState<JiraIssue[]>(preFetchedIssues);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDoneOver, setIsDoneOver] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -64,10 +76,14 @@ export const IssueSelector = ({
         await updateIssueStatus(card.key, targetStatus); 
       }
       toast.success(`${card.key} synced`, { id: toastId });
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Rollback on failure
       setCards(pv => pv.map(c => c.id === cardId ? { ...c, column: sourceColumn, status: sourceStatus } : c));
-      toast.error(err.message || `Jira sync failed`, { id: toastId });
+      if (err instanceof Error) {
+        toast.error(err.message || `Jira sync failed`, { id: toastId });
+      } else {
+        toast.error(`Jira sync failed`, { id: toastId });
+      }
     }
   };
 
@@ -75,7 +91,6 @@ export const IssueSelector = ({
 
   return (
     <div className="h-full w-full flex flex-col gap-6 animate-in fade-in duration-500">
-      {/* Search and Action Bar */}
       <div className="flex justify-between items-center px-2 shrink-0">
         <div className="flex items-center gap-4 flex-1">
           <div className="relative w-full max-w-2xl group">
@@ -93,7 +108,6 @@ export const IssueSelector = ({
           </button>
         </div>
 
-        {/* Done Bucket */}
         <div className="flex items-center gap-4 relative ml-4 shrink-0">
           <div 
             onDrop={(e) => { 
@@ -112,7 +126,6 @@ export const IssueSelector = ({
         </div>
       </div>
 
-      {/* Board Grid */}
       <div className="flex-1 min-h-0">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 h-full w-full gap-6 px-2 pb-2">
           <Column title="BACKLOG" column="backlog" headingColor="text-zinc-500" cards={filteredCards} onStatusChange={handleStatusChange} />
@@ -122,9 +135,8 @@ export const IssueSelector = ({
         </div>
       </div>
 
-      {/* Create Modal */}
       <AnimatePresence>
-        {isAdding && (
+        {isAdding && boardId && (
           <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsAdding(false)} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
             <JiraCreateModal boardId={boardId} setCards={setCards} onClose={() => setIsAdding(false)} />
@@ -135,9 +147,24 @@ export const IssueSelector = ({
   );
 };
 
-const Column = ({ title, headingColor, cards, column, onStatusChange }: any) => {
+// Main Export with Suspense wrapper to handle useSearchParams
+export const IssueSelector = (props: IssueSelectorProps) => (
+  <Suspense fallback={<div className="h-full w-full bg-white/5 animate-pulse rounded-3xl" />}>
+    <IssueSelectorContent {...props} />
+  </Suspense>
+);
+
+interface ColumnProps {
+  title: string;
+  headingColor: string;
+  cards: JiraIssue[];
+  column: string;
+  onStatusChange: (cardId: string, targetColumn: string, targetStatus: string) => void;
+}
+
+const Column = ({ title, headingColor, cards, column, onStatusChange }: ColumnProps) => {
   const [active, setActive] = useState(false);
-  const filtered = cards.filter((c: any) => c.column === column);
+  const filtered = cards.filter((c: JiraIssue) => c.column === column);
 
   const getJiraStatusName = (col: string) => {
     switch (col) {
@@ -166,7 +193,7 @@ const Column = ({ title, headingColor, cards, column, onStatusChange }: any) => 
       >
         <div className="p-2 h-full overflow-y-auto custom-scrollbar">
           <AnimatePresence>
-            {filtered.map((c: any) => (
+            {filtered.map((c: JiraIssue) => (
               <Card key={c.id} id={c.id} issueKey={c.key} summary={c.summary} status={c.status} currentColumn={column} />
             ))}
           </AnimatePresence>
@@ -176,7 +203,15 @@ const Column = ({ title, headingColor, cards, column, onStatusChange }: any) => 
   );
 };
 
-const Card = ({ summary, issueKey, id, status, currentColumn }: any) => {
+interface CardProps {
+  summary: string;
+  issueKey: string;
+  id: string;
+  status: string;
+  currentColumn: string;
+}
+
+const Card = ({ summary, issueKey, id, status, currentColumn }: CardProps) => {
   const getStatusColor = (s: string) => {
     switch (s?.toLowerCase()) {
       case 'done': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
@@ -190,14 +225,15 @@ const Card = ({ summary, issueKey, id, status, currentColumn }: any) => {
       layout 
       layoutId={id} 
       draggable={true} 
-      onDragStart={(e) => {
-        // Essential: Store the ID to identify the card when dropped
-        e.dataTransfer.setData("cardId", id);
-      }}
       className="cursor-grab rounded-2xl border border-white/5 bg-zinc-900/50 p-4 mb-3 active:cursor-grabbing hover:border-white/20 hover:bg-zinc-900 transition-all relative group"
     >
-      {/* Use pointer-events-none to prevent inner elements from blocking the drag */}
-      <div className="w-full h-full pointer-events-none">
+      <div 
+        className="w-full h-full pointer-events-none"
+        onDragStart={(e: React.DragEvent) => {
+          e.dataTransfer.setData("cardId", id);
+        }}
+        draggable={true}
+      >
         <div className="flex justify-between items-start mb-2">
           <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{issueKey}</span>
           {currentColumn === 'backlog' && status && (
@@ -212,7 +248,12 @@ const Card = ({ summary, issueKey, id, status, currentColumn }: any) => {
   );
 };
 
-const LaunchArena = ({ onLaunch, setCards }: any) => {
+interface LaunchArenaProps {
+  onLaunch: (issue: JiraIssue) => void;
+  setCards: React.Dispatch<React.SetStateAction<JiraIssue[]>>;
+}
+
+const LaunchArena = ({ onLaunch, setCards }: LaunchArenaProps) => {
   const [active, setActive] = useState(false);
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -220,7 +261,7 @@ const LaunchArena = ({ onLaunch, setCards }: any) => {
       <div 
         onDrop={(e: DragEvent) => { 
           const id = e.dataTransfer.getData("cardId"); 
-          setCards((pv: any[]) => { 
+          setCards((pv: JiraIssue[]) => { 
             const card = pv.find(c => c.id === id); 
             if (card) onLaunch(card); 
             return pv.filter(c => c.id !== id); 
@@ -245,7 +286,13 @@ const LaunchArena = ({ onLaunch, setCards }: any) => {
   );
 };
 
-const JiraCreateModal = ({ boardId, setCards, onClose }: any) => {
+interface JiraCreateModalProps {
+  boardId: string;
+  setCards: React.Dispatch<React.SetStateAction<JiraIssue[]>>;
+  onClose: () => void;
+}
+
+const JiraCreateModal = ({ boardId, setCards, onClose }: JiraCreateModalProps) => {
   const [formData, setFormData] = useState({ summary: "", type: "Task" });
   const searchParams = useSearchParams();
   const sprintId = searchParams.get('sprintId');
@@ -256,21 +303,19 @@ const JiraCreateModal = ({ boardId, setCards, onClose }: any) => {
 
     const toastId = toast.loading(`Creating ${formData.type}...`);
     try {
-      // Calls the server action to create the issue in Jira
       const jiraIssue = await createJiraIssue(formData.summary, boardId, formData.type, sprintId);
-      
-      // Automatically transition the new issue to "To Do" status
       await updateIssueStatus(jiraIssue.key, "To Do");
       
-      const newIssue = { 
+      const newIssue: JiraIssue = { 
         id: jiraIssue.id, 
         key: jiraIssue.key, 
         summary: formData.summary, 
         column: 'todo', 
-        status: 'To Do' 
+        status: 'To Do',
+        statusCategory: 'To Do'
       };
 
-      setCards((pv: any) => [...pv, newIssue]);
+      setCards((pv: JiraIssue[]) => [...pv, newIssue]);
       toast.success(`${jiraIssue.key} created in TODO`, { id: toastId });
       onClose();
     } catch (err) {

@@ -5,22 +5,23 @@ import { getBoardData } from '../../../services/jira';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiLayers, FiZap, FiSearch, FiLoader } from 'react-icons/fi';
 
-export const BoardSelector = ({ onSelect }: { onSelect: (board: any) => void }) => {
-  const [boards, setBoards] = useState<any[]>([]);
+type Board = {
+  id: string;
+  name: string;
+  type: string;
+};
+
+export const BoardSelector = ({ onSelect }: { onSelect: (board: Board) => void }) => {
+  const [boards, setBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [mounted, setMounted] = useState(false);
-
-  // Hydration protection for Next.js
+  // Fetch board data on mount
   useEffect(() => {
-    setMounted(true);
     getBoardData().then((data) => {
       setBoards(data);
       setLoading(false);
     });
   }, []);
-
-  if (!mounted) return null;
 
   const filtered = boards.filter(b => 
     b.name.toLowerCase().includes(query.toLowerCase())

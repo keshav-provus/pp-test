@@ -9,19 +9,42 @@ import { ChevronLeft, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast, Toaster } from "sonner";
 
+// Explicit interfaces to prevent Vercel build-time type errors
+interface Board {
+  id: string;
+  name: string;
+  type: 'scrum' | 'kanban' | string;
+}
+
+interface Sprint {
+  id: string;
+  name: string;
+  state: string;
+}
+
+interface Issue {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  statusCategory: string;
+}
+
 export default function CreateRoomPage() {
   const [step, setStep] = useState<'board' | 'sprint' | 'launch'>('board');
-  const [selectedBoard, setSelectedBoard] = useState<any>(null);
-  const [selectedSprint, setSelectedSprint] = useState<any>(null);
-  const [issues, setIssues] = useState<any[]>([]);
+  const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
+  const [selectedSprint, setSelectedSprint] = useState<Sprint | null>(null);
+  const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Function to refresh Jira data (satisfies IssueSelector requirement)
+  // Refined Jira data sync with proper type handling
   const handleSyncIssues = async () => {
+    if (!selectedBoard) return;
+    
     setLoading(true);
     const toastId = toast.loading("Syncing latest Jira data...");
     try {
-      let data;
+      let data: Issue[];
       if (selectedSprint) {
         data = await getIssuesBySprint(selectedSprint.id);
       } else {
@@ -36,7 +59,7 @@ export default function CreateRoomPage() {
     }
   };
 
-  const handleBoardSelect = async (board: any) => {
+  const handleBoardSelect = async (board: Board) => {
     setSelectedBoard(board);
     if (board.type === 'scrum') {
       setStep('sprint');
@@ -48,13 +71,14 @@ export default function CreateRoomPage() {
         setStep('launch');
       } catch (err) {
         console.error("Error fetching board issues:", err);
+        toast.error("Failed to load board issues");
       } finally {
         setLoading(false);
       }
     }
   };
 
-  const handleSprintSelect = async (sprint: any) => {
+  const handleSprintSelect = async (sprint: Sprint) => {
     setSelectedSprint(sprint);
     setLoading(true);
     try {
@@ -63,6 +87,7 @@ export default function CreateRoomPage() {
       setStep('launch');
     } catch (err) {
       console.error("Error fetching sprint issues:", err);
+      toast.error("Failed to load sprint issues");
     } finally {
       setLoading(false);
     }
@@ -121,7 +146,7 @@ export default function CreateRoomPage() {
                 </motion.div>
               )}
 
-              {step === 'sprint' && (
+              {step === 'sprint' && selectedBoard && (
                 <motion.div
                   key="sprint"
                   initial={{ opacity: 0, y: 10 }}
@@ -141,10 +166,9 @@ export default function CreateRoomPage() {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {/* FIXED: Added required onSync prop */}
                   <IssueSelector 
                     preFetchedIssues={issues} 
-                    onLaunch={(issue: any) => console.log("Final Launch:", issue)} 
+                    onLaunch={(issue: Issue) => console.log("Final Launch:", issue)} 
                     onSync={handleSyncIssues}
                   />
                 </motion.div>
