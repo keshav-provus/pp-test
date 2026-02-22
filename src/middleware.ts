@@ -9,7 +9,7 @@ export default withAuth(
     callbacks: {
       authorized: ({ token }) => {
         const email = token?.email || "";
-\        return !!token && (email.endsWith("@provusinc.com") || email.endsWith("@provus.ai"));
+         return !!token && (email.endsWith("@provusinc.com") || email.endsWith("@provus.ai"));
       },
     },
     pages: {
