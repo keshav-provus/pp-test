@@ -2,7 +2,7 @@ import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
 import GoogleProvider, { GoogleProfile } from "next-auth/providers/google";
 import { createClient } from "@supabase/supabase-js";
 
-// Extend the built-in session types to include the user ID
+// Extend the session type to include user ID
 declare module "next-auth" {
     interface Session {
         user: {
@@ -11,7 +11,7 @@ declare module "next-auth" {
     }
 }
 
-// Safe Supabase Initialization: Prevents build-time errors on Vercel
+// Safe Supabase Initialization to prevent top-level crashes
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
@@ -22,12 +22,11 @@ const supabase = (supabaseUrl && supabaseKey)
 export const authOptions: NextAuthOptions = {
     providers: [
         GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID || "",
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-            // Forces account selection to prevent "sticky" sessions with wrong accounts
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
             authorization: {
                 params: {
-                    prompt: "select_account",
+                    prompt: "select_account", // Fixes "sticky session" by forcing account choice
                     access_type: "offline",
                     response_type: "code",
                 },
@@ -51,15 +50,13 @@ export const authOptions: NextAuthOptions = {
             const email = profile?.email;
             if (!email) return false;
 
-            // Domain Restriction: Matches middleware.ts
+            // Restrict login to specific domains
             const allowedDomains = ["provusinc.com", "provus.ai"];
             const isAllowed = allowedDomains.some(domain => email.endsWith(`@${domain}`));
 
-            if (!isAllowed) {
-                return false; // Denies access and redirects to error page
-            }
+            if (!isAllowed) return false;
 
-            // Database Sync: Upsert user profile to Supabase
+            // Sync user data to Supabase
             if (supabase) {
                 try {
                     const { error } = await supabase
@@ -74,7 +71,7 @@ export const authOptions: NextAuthOptions = {
 
                     if (error) {
                         console.error("Supabase Sync Error:", error.message);
-                        // We return true here so a DB failure doesn't block the login flow entirely
+                        // Allow login to proceed even if DB sync fails
                         return true; 
                     }
                 } catch (e) {
@@ -92,18 +89,16 @@ export const authOptions: NextAuthOptions = {
         },
         async session({ session, token }) {
             if (session.user && token.sub) {
-                // Ensure the user ID is passed from the token to the session
-                session.user.id = token.sub as string;
+                session.user.id = token.sub as string; // Pass ID to client-side session
             }
             return session;
         },
     },
     pages: {
-        signIn: '/login',
-        error: '/auth/error',
+        signIn: '/login', // Redirects here for sign-in
+        error: '/api/auth/error', // Redirects here for auth failures
     },
-    // Required for Vercel production deployments
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET, // Required for production deployments
 };
 
 const handler = NextAuth(authOptions);
