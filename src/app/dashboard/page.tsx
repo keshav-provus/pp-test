@@ -18,7 +18,6 @@ import { SprintSelector } from "@/components/pages/sprint-selector";
 import { IssueSelector } from "@/components/pages/issue-selector";
 import { JoinSession } from "@/components/pages/join-session";
 import { getIssuesBySprint, getBoardBacklog } from "../../../services/jira";
-import { createClient } from "@/lib/supabase/client"; // ✅ Imported Supabase client
 
 interface JiraIssue {
   id: string;
@@ -272,7 +271,7 @@ function DashboardContent() {
               <IssueSelector
                 preFetchedIssues={issues}
                 onSync={refreshJiraData}
-                onLaunch={async (issue: JiraIssue) => {
+                onLaunch={(issue: JiraIssue) => {
                   if (!sessionId) {
                     toast.error(
                       "Session ID missing. Please recreate the session.",
@@ -280,15 +279,8 @@ function DashboardContent() {
                     return;
                   }
 
-                  // ✅ Broadcast the newly dropped issue to anyone already waiting in the room using Supabase
-                  const supabase = createClient();
-                  const channel = supabase.channel(`poker-${sessionId}`);
-                  
-                  await channel.send({
-                    type: "broadcast",
-                    event: "set-issue",
-                    payload: { issue }
-                  });
+                  // ✅ Store the issue locally so the Host can bring it into the Arena
+                  sessionStorage.setItem(`poker_issue_${sessionId}`, JSON.stringify(issue));
 
                   // Push host to arena with privileges
                   router.push(`/poker/${sessionId}?host=true`);

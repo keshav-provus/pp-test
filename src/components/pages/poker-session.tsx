@@ -1,14 +1,33 @@
 "use client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { FiUsers, FiEye, FiCheckCircle, FiCopy, FiArrowRight } from "react-icons/fi";
-import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client"; // ✅ Updated Import
-import { updateStoryPoints } from "../../../services/jira"; 
-import { motion, AnimatePresence } from "framer-motion";
 
-interface PokerSessionProps {
+import React, { useEffect, useState, useRef } from "react";
+import { createClient, RealtimeChannel } from "@supabase/supabase-js";
+import { motion, AnimatePresence } from "framer-motion";
+import { FiEye, FiRotateCcw, FiCheckCircle, FiCopy, FiUsers, FiArrowRight } from "react-icons/fi";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { updateStoryPoints } from "../../../services/jira";
+
+// Initialize outside component to prevent re-creation
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// --- STRICT TYPES ---
+export interface Issue {
+  key: string;
+  summary: string;
+  [key: string]: unknown; // Catch-all for extra Jira fields if needed
+}
+
+export interface Player {
+  name: string;
+  vote: number | null;
+  isHost: boolean;
+}
+
+export interface PokerSessionProps {
   sessionId: string;
   user: { id: string; name: string };
   isHost: boolean;
@@ -16,100 +35,126 @@ interface PokerSessionProps {
 
 export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => {
   const router = useRouter();
-  const supabase = createClient(); // ✅ Updated Instantiation
   
-  interface Player {
-    name: string;
-    vote: number | null;
-    isHost: boolean;
-  }
-  
-    const [players, setPlayers] = useState<Record<string, Player>>({});
-  interface Issue {
-    key: string;
-    summary: string;
-    // Add other fields as needed
-  }
+  // State
+  const [players, setPlayers] = useState<Record<string, Player>>({});
   const [currentIssue, setCurrentIssue] = useState<Issue | null>(null);
-  const [isRevealed, setIsRevealed] = useState(false);
   const [myVote, setMyVote] = useState<number | null>(null);
-  // Import the type for Supabase RealtimeChannel
-
-
-  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+  const [isRevealed, setIsRevealed] = useState(false);
+  
+  // Refs to prevent stale closures and infinite re-renders in WebSockets
+  const activeChannelRef = useRef<RealtimeChannel | null>(null);
+  const currentIssueRef = useRef<Issue | null>(null);
 
   const cardValues = [1, 2, 3, 5, 8, 13, 21];
 
+  // Keep ref in sync with state for the socket callbacks to read without re-binding
   useEffect(() => {
-    // 1. Initialize Supabase Room
-    const room = supabase.channel(`poker-${sessionId}`, {
-      config: {
-        presence: { key: user.id },
-        broadcast: { self: true }, 
-      },
-    });
+    currentIssueRef.current = currentIssue;
+  }, [currentIssue]);
 
-    // 2. Presence: Handle Users Joining/Leaving seamlessly
-    room.on("presence", { event: "sync" }, () => {
-      const state = room.presenceState();
-      const currentPlayers: Record<string, Player> = {};
-      
-      Object.keys(state).forEach((key) => {
-        const presence = state[key][0] as Partial<Player> & { presence_ref: string };
-        currentPlayers[key] = {
-          name: presence.name ?? "Unknown",
-          vote: presence.vote ?? null,
-          isHost: presence.isHost ?? false,
-        }; // Ensure Player shape
-      });
-      setPlayers(currentPlayers);
-    });
-
-    // 3. Broadcast: Handle Realtime Actions
-    room.on("broadcast", { event: "cast-vote" }, ({ payload }) => {
-      setPlayers((prev) => ({
-        ...prev,
-        [payload.userId]: { ...prev[payload.userId], vote: payload.value }
-      }));
-    });
-
-    room.on("broadcast", { event: "reveal-votes" }, () => setIsRevealed(true));
-
-    room.on("broadcast", { event: "set-issue" }, ({ payload }) => {
-      setCurrentIssue(payload.issue);
-      setIsRevealed(false);
-      setMyVote(null);
-      // Update our own presence to reset our vote visibility
-      room.track({ name: user.name, vote: null, isHost });
-      toast.info(`New issue launched: ${payload.issue.key}`);
-    });
-
-    // 4. Subscribe & Announce
-    room.subscribe(async (status) => {
-      if (status === "SUBSCRIBED") {
-        setChannel(room);
-        await room.track({ name: user.name, vote: null, isHost });
+  // ✅ HOST LOGIC: Load the issue from SessionStorage safely (SSR Friendly)
+  useEffect(() => {
+    if (isHost && typeof window !== "undefined") {
+      try {
+        const savedIssue = sessionStorage.getItem(`poker_issue_${sessionId}`);
+        if (savedIssue) {
+          const parsedIssue = JSON.parse(savedIssue);
+          setTimeout(() => {
+            setCurrentIssue(parsedIssue);
+          }, 0);
+          
+          // If the channel is already connected, broadcast this loaded issue
+          if (activeChannelRef.current?.state === "joined") {
+            activeChannelRef.current.send({
+              type: "broadcast",
+              event: "set-issue",
+              payload: { issue: parsedIssue }
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to parse issue from session storage", err);
       }
+    }
+  }, [isHost, sessionId]);
+
+  // ✅ SOCKET LIFECYCLE: Connect once, rely on Refs for dynamic data
+  useEffect(() => {
+    const channel = supabase.channel(`poker-${sessionId}`, {
+      config: { broadcast: { self: true }, presence: { key: user.id } },
     });
 
-    // Fetch initial issue if joining late (Optional depending on your setup)
-    // You could fetch this from your DB or rely on the host's next broadcast
+    activeChannelRef.current = channel;
 
-    return () => {
-      supabase.removeChannel(room);
+    channel
+      .on("broadcast", { event: "cast-vote" }, ({ payload }: { payload: { userId: string, value: number } }) => {
+        setPlayers((prev) => ({
+          ...prev,
+          [payload.userId]: { ...prev[payload.userId], vote: payload.value }
+        }));
+      })
+      .on("broadcast", { event: "reveal-votes" }, () => setIsRevealed(true))
+      .on("broadcast", { event: "set-issue" }, ({ payload }: { payload: { issue: Issue } }) => {
+        setCurrentIssue(payload.issue);
+        setIsRevealed(false);
+        setMyVote(null);
+      })
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const currentPlayers: Record<string, Player> = {};
+        
+        Object.keys(state).forEach((key) => {
+          // Assert type safely from Supabase presence shape
+          const presenceData = state[key][0] as unknown as Player;
+          if (presenceData) {
+            currentPlayers[key] = {
+              name: presenceData.name,
+              vote: presenceData.vote,
+              isHost: presenceData.isHost
+            };
+          }
+        });
+        setPlayers(currentPlayers);
+      })
+      .on("presence", { event: "join" }, () => {
+        // Late joiner fix: use the ref so we don't need to put currentIssue in the dependency array
+        if (isHost && currentIssueRef.current) {
+          channel.send({
+            type: "broadcast",
+            event: "set-issue",
+            payload: { issue: currentIssueRef.current }
+          });
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ name: user.name, vote: null, isHost });
+          
+          if (isHost && currentIssueRef.current) {
+             channel.send({
+               type: "broadcast",
+               event: "set-issue",
+               payload: { issue: currentIssueRef.current }
+             });
+          }
+        }
+      });
+
+    return () => { 
+      supabase.removeChannel(channel); 
+      activeChannelRef.current = null;
     };
-  }, [sessionId, supabase, user.id, user.name, isHost]);
+  }, [sessionId, user.id, user.name, isHost]); // Removed currentIssue dependency!
 
-  // Actions
+  // --- ACTIONS ---
+
   const handleVote = async (value: number) => {
-    if (isRevealed || !channel) return;
+    if (isRevealed || !activeChannelRef.current) return;
     setMyVote(value);
     
-    // Update our presence state
-    await channel.track({ name: user.name, vote: value, isHost });
-    
-    // Broadcast to everyone
-    await channel.send({
+    await activeChannelRef.current.track({ name: user.name, vote: value, isHost });
+    await activeChannelRef.current.send({
       type: "broadcast",
       event: "cast-vote",
       payload: { userId: user.id, value }
@@ -117,30 +162,28 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
   };
 
   const handleReveal = async () => {
-    if (!channel) return;
+    if (!activeChannelRef.current) return;
     setIsRevealed(true);
-    await channel.send({ type: "broadcast", event: "reveal-votes" });
+    await activeChannelRef.current.send({ type: "broadcast", event: "reveal-votes" });
   };
 
   const handleSaveToJira = async (points: number) => {
-    if (!currentIssue) {
-      toast.error("No issue selected.");
-      return;
-    }
-    const tid = toast.loading("Updating Jira...");
+    if (!currentIssue) return;
+    
+    const tid = toast.loading(`Updating ${currentIssue.key} in Jira...`);
     try {
       await updateStoryPoints(currentIssue.key, points);
-      toast.success(`${currentIssue.key} updated!`, { id: tid });
+      toast.success(`${currentIssue.key} updated successfully!`, { id: tid });
     } catch (err) {
       toast.error("Failed to sync with Jira", { id: tid });
     }
   };
 
   const handleNextIssue = () => {
-    // Reuses the session. The room stays open.
     router.push(`/dashboard?step=launch&sessionId=${sessionId}`);
   };
 
+  // ✅ Show Loading Screen
   if (!currentIssue) {
     return (
       <div className="h-full flex items-center justify-center text-lime-400 font-black animate-pulse bg-[#0a0a0a]">
@@ -158,15 +201,12 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
             {currentIssue.key}
           </h1>
           <h2 className="text-2xl font-bold mt-2">{currentIssue.summary}</h2>
-          <span className="text-zinc-500 text-[10px] font-black uppercase mt-2 flex items-center gap-2">
-            <FiUsers /> {Object.keys(players).length} IN ARENA | ID: {sessionId}
-          </span>
         </div>
         
         <div className="flex gap-3">
           <button 
-            onClick={() => { navigator.clipboard.writeText(sessionId); toast.success("Copied!"); }}
-            className="p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10"
+            onClick={() => { navigator.clipboard.writeText(sessionId); toast.success("ID Copied!"); }}
+            className="p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors"
           >
             <FiCopy />
           </button>
@@ -186,8 +226,8 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
           )}
         </div>
       </div>
-
-      {/* Players Grid */}
+      
+      {/* PLAYERS GRID */}
       <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-6 content-start">
         <AnimatePresence>
           {Object.entries(players).map(([id, p]: [string, Player]) => (
@@ -206,7 +246,7 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
         </AnimatePresence>
       </div>
 
-      {/* Voting Cards */}
+      {/* VOTING CARDS */}
       <div className="bg-black/40 border border-white/10 p-6 rounded-[40px] flex justify-center gap-4 overflow-x-auto">
         {cardValues.map(val => (
           <button
@@ -220,8 +260,8 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
         ))}
       </div>
 
-      {/* Host Save to Jira (Only shows after reveal) */}
-      {isHost && isRevealed && (
+       {/* Host Save to Jira */}
+       {isHost && isRevealed && (
         <div className="fixed bottom-36 left-1/2 -translate-x-1/2 bg-zinc-900 border border-white/10 p-4 rounded-3xl flex items-center gap-4 shadow-2xl">
           <span className="text-xs font-bold uppercase text-zinc-400 flex items-center gap-2">
              <FiCheckCircle /> Submit to Jira:
