@@ -399,3 +399,25 @@ export async function updateStoryPoints(issueKey: string, points: number) {
 
   return { success: true };
 }
+
+export async function getIssueDetails(issueKey: string): Promise<JiraIssue> {
+  const config = getJiraConfig();
+  const response = await fetch(`${config.baseUrl}/rest/api/2/issue/${issueKey}`, {
+    method: "GET",
+    headers: config.headers as HeadersInit,
+    next: { revalidate: 0 },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch issue ${issueKey}`);
+  }
+
+  const issue = await response.json();
+  return {
+    id: issue.id,
+    key: issue.key,
+    summary: issue.fields.summary,
+    status: issue.fields.status.name,
+    statusCategory: issue.fields.status.statusCategory.name,
+  };
+}
