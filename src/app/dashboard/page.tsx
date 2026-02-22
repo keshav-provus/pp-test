@@ -18,7 +18,7 @@ import { SprintSelector } from "@/components/pages/sprint-selector";
 import { IssueSelector } from "@/components/pages/issue-selector";
 import { JoinSession } from "@/components/pages/join-session";
 import { getIssuesBySprint, getBoardBacklog } from "../../../services/jira";
-import { initBackgroundSocket } from "@/lib/socket";
+import { createClient } from "@/lib/supabase/client"; // ✅ Imported Supabase client
 
 interface JiraIssue {
   id: string;
@@ -94,11 +94,9 @@ function DashboardContent() {
   }, [step, boardId, sprintId]);
 
   /**
-   * Optimization: Pre-warm the socket connection and generate a unique
-   * Session ID the moment the host initiates the creation flow.
+   * Generates a unique Session ID the moment the host initiates the creation flow.
    */
   const handleStartCreation = () => {
-    initBackgroundSocket();
     const newSessionId = Math.random()
       .toString(36)
       .substring(2, 8)
@@ -274,7 +272,7 @@ function DashboardContent() {
               <IssueSelector
                 preFetchedIssues={issues}
                 onSync={refreshJiraData}
-                onLaunch={(issue: JiraIssue) => {
+                onLaunch={async (issue: JiraIssue) => {
                   if (!sessionId) {
                     toast.error(
                       "Session ID missing. Please recreate the session.",
@@ -282,9 +280,15 @@ function DashboardContent() {
                     return;
                   }
 
-                  // Reuses the background socket connection and updates the room's current issue
-                  const socket = initBackgroundSocket();
-                  socket.emit("set-issue", { sessionId, issue });
+                  // ✅ Broadcast the newly dropped issue to anyone already waiting in the room using Supabase
+                  const supabase = createClient();
+                  const channel = supabase.channel(`poker-${sessionId}`);
+                  
+                  await channel.send({
+                    type: "broadcast",
+                    event: "set-issue",
+                    payload: { issue }
+                  });
 
                   // Push host to arena with privileges
                   router.push(`/poker/${sessionId}?host=true`);
