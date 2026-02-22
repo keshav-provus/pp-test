@@ -177,29 +177,36 @@ export async function updateIssueStatus(issueKey: string, targetStatus: string) 
   const res = await fetch(transitionsUrl, {
     method: "GET",
     headers: config.headers as HeadersInit,
+    cache: 'no-store' // Prevent Vercel from caching the transitions list
   });
 
+  if (!res.ok) throw new Error("Failed to fetch available transitions");
+  
   const { transitions } = await res.json();
   interface JiraTransition {
     id: string;
     name: string;
+    to?: {
+      statusCategory?: {
+        key: string;
+      };
+    };
   }
-  
-    const transition = transitions.find((t: JiraTransition) => 
-      t.name.toLowerCase() === targetStatus.toLowerCase()
-    );
+  const transition = transitions.find((t: JiraTransition) => 
+    t.name.toLowerCase() === targetStatus.toLowerCase()
+  );
 
-  if (!transition) {
-    throw new Error(`No transition found for status: ${targetStatus}`);
-  }
+  if (!transition) throw new Error(`No transition found for status: ${targetStatus}`);
 
-  await fetch(transitionsUrl, {
+  const updateRes = await fetch(transitionsUrl, {
     method: "POST",
     headers: config.headers as HeadersInit,
     body: JSON.stringify({ transition: { id: transition.id } }),
   });
 
-  return { success: true, newStatus: transition.name };
+  if (!updateRes.ok) throw new Error("Jira update failed");
+
+  return { success: true };
 }
 
 /**
