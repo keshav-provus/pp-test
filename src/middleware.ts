@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 // The exported function name must also be changed to 'proxy'
 export default withAuth(
-  function proxy(req) {
+  function middleware(req) {
     return NextResponse.next();
   },
   {
