@@ -1,6 +1,7 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
+// The exported function name must also be changed to 'proxy'
 export default withAuth(
   function proxy(req) {
     return NextResponse.next();
@@ -9,7 +10,7 @@ export default withAuth(
     callbacks: {
       authorized: ({ token }) => {
         const email = token?.email || "";
-         return !!token && (email.endsWith("@provusinc.com") || email.endsWith("@provus.ai"));
+        return !!token && (email.endsWith("@provusinc.com") || email.endsWith("@provus.ai"));
       },
     },
     pages: {
@@ -20,6 +21,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    "/dashboard",
+    "/dashboard/:path*", 
   ],
 };
