@@ -137,7 +137,7 @@ const IssueSelectorContent = ({
 
       <AnimatePresence>
         {isAdding && boardId && (
-          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-300 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsAdding(false)} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
             <JiraCreateModal boardId={boardId} setCards={setCards} onClose={() => setIsAdding(false)} />
           </div>
@@ -211,6 +211,7 @@ interface CardProps {
   currentColumn: string;
 }
 
+// Find the Card component and update its return block:
 const Card = ({ summary, issueKey, id, status, currentColumn }: CardProps) => {
   const getStatusColor = (s: string) => {
     switch (s?.toLowerCase()) {
@@ -227,12 +228,13 @@ const Card = ({ summary, issueKey, id, status, currentColumn }: CardProps) => {
       draggable={true} 
       className="cursor-grab rounded-2xl border border-white/5 bg-zinc-900/50 p-4 mb-3 active:cursor-grabbing hover:border-white/20 hover:bg-zinc-900 transition-all relative group"
     >
-      <div 
+      <div
         className="w-full h-full pointer-events-none"
-        onDragStart={(e: React.DragEvent) => {
-          e.dataTransfer.setData("cardId", id);
+        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+          // Essential for production: use clear key-value pairs
+          e.dataTransfer.setData("cardId", id.toString());
+          e.dataTransfer.effectAllowed = "move";
         }}
-        draggable={true}
       >
         <div className="flex justify-between items-start mb-2">
           <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{issueKey}</span>
