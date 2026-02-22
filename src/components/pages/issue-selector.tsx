@@ -1,4 +1,3 @@
-// src/components/pages/issue-selector.tsx
 "use client";
 
 import React, { useState, DragEvent, useMemo, useEffect } from "react";
@@ -10,7 +9,7 @@ import {
   createJiraIssue, 
   moveIssueToSprint, 
   moveIssueToBacklog 
-} from "../../../services/jira";
+} from "../../../services/jira"; 
 import { useSearchParams } from 'next/navigation';
 
 export const IssueSelector = ({ 
@@ -33,35 +32,40 @@ export const IssueSelector = ({
 
   useEffect(() => {
     setCards(preFetchedIssues);
-  }, [preFetchedIssues]);
+  }, [preFetchedIssues]); 
 
   const filteredCards = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-    return query ? cards.filter(c => c.key.toLowerCase().includes(query) || c.summary.toLowerCase().includes(query)) : cards;
-  }, [cards, searchQuery]);
+    return query ? cards.filter(c => 
+      c.key.toLowerCase().includes(query) || 
+      c.summary.toLowerCase().includes(query)
+    ) : cards;
+  }, [cards, searchQuery]); 
 
   const handleStatusChange = async (cardId: string, targetColumn: string, targetStatus: string) => {
     const card = cards.find(c => c.id === cardId);
-    if (!card) return;
+    if (!card || card.column === targetColumn) return; 
 
     const sourceColumn = card.column;
     const sourceStatus = card.status;
 
+    // Optimistic UI Update
     setCards(pv => pv.map(c => c.id === cardId ? { ...c, column: targetColumn, status: targetStatus } : c));
     const toastId = toast.loading(`Syncing ${card.key}...`);
 
     try {
       if (sourceColumn === 'backlog' && targetColumn !== 'backlog') {
         if (!sprintId) throw new Error("No active sprint ID found");
-        await moveIssueToSprint(card.key, sprintId);
+        await moveIssueToSprint(card.key, sprintId); 
       } 
       else if (sourceColumn !== 'backlog' && targetColumn === 'backlog') {
-        await moveIssueToBacklog(card.key);
+        await moveIssueToBacklog(card.key); 
       } else {
-        await updateIssueStatus(card.key, targetStatus);
+        await updateIssueStatus(card.key, targetStatus); 
       }
       toast.success(`${card.key} synced`, { id: toastId });
     } catch (err: any) {
+      // Rollback on failure
       setCards(pv => pv.map(c => c.id === cardId ? { ...c, column: sourceColumn, status: sourceStatus } : c));
       toast.error(err.message || `Jira sync failed`, { id: toastId });
     }
@@ -71,6 +75,7 @@ export const IssueSelector = ({
 
   return (
     <div className="h-full w-full flex flex-col gap-6 animate-in fade-in duration-500">
+      {/* Search and Action Bar */}
       <div className="flex justify-between items-center px-2 shrink-0">
         <div className="flex items-center gap-4 flex-1">
           <div className="relative w-full max-w-2xl group">
@@ -88,9 +93,14 @@ export const IssueSelector = ({
           </button>
         </div>
 
+        {/* Done Bucket */}
         <div className="flex items-center gap-4 relative ml-4 shrink-0">
           <div 
-            onDrop={(e) => { const id = e.dataTransfer.getData("cardId"); setIsDoneOver(false); handleStatusChange(id, 'done', 'Done'); }}
+            onDrop={(e) => { 
+              const id = e.dataTransfer.getData("cardId"); 
+              setIsDoneOver(false); 
+              handleStatusChange(id, 'done', 'Done'); 
+            }}
             onDragOver={(e) => { e.preventDefault(); setIsDoneOver(true); }}
             onDragLeave={() => setIsDoneOver(false)}
             className={`flex items-center gap-4 px-6 py-4 rounded-2xl border transition-all cursor-pointer ${isDoneOver ? "bg-emerald-500/20 border-emerald-500" : "bg-white/5 border-white/10"}`}
@@ -102,6 +112,7 @@ export const IssueSelector = ({
         </div>
       </div>
 
+      {/* Board Grid */}
       <div className="flex-1 min-h-0">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 h-full w-full gap-6 px-2 pb-2">
           <Column title="BACKLOG" column="backlog" headingColor="text-zinc-500" cards={filteredCards} onStatusChange={handleStatusChange} />
@@ -111,6 +122,7 @@ export const IssueSelector = ({
         </div>
       </div>
 
+      {/* Create Modal */}
       <AnimatePresence>
         {isAdding && (
           <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
@@ -133,7 +145,7 @@ const Column = ({ title, headingColor, cards, column, onStatusChange }: any) => 
       case 'doing': return 'In Progress';
       default: return 'To Do';
     }
-  };
+  }; 
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -142,7 +154,11 @@ const Column = ({ title, headingColor, cards, column, onStatusChange }: any) => 
         <span className="text-zinc-500 bg-black/20 px-2 py-0.5 rounded-lg text-[10px] font-bold">{filtered.length}</span>
       </div>
       <div
-        onDrop={(e: DragEvent) => { const id = e.dataTransfer.getData("cardId"); setActive(false); onStatusChange(id, column, getJiraStatusName(column)); }}
+        onDrop={(e: DragEvent) => { 
+          const id = e.dataTransfer.getData("cardId"); 
+          setActive(false); 
+          onStatusChange(id, column, getJiraStatusName(column)); 
+        }}
         onDragOver={(e: DragEvent) => { e.preventDefault(); setActive(true); }}
         onDragLeave={() => setActive(false)}
         className={`flex-1 w-full transition-all duration-300 rounded-[32px] border-2 border-dashed overflow-hidden
@@ -173,9 +189,15 @@ const Card = ({ summary, issueKey, id, status, currentColumn }: any) => {
     <motion.div 
       layout 
       layoutId={id} 
+      draggable={true} 
+      onDragStart={(e) => {
+        // Essential: Store the ID to identify the card when dropped
+        e.dataTransfer.setData("cardId", id);
+      }}
       className="cursor-grab rounded-2xl border border-white/5 bg-zinc-900/50 p-4 mb-3 active:cursor-grabbing hover:border-white/20 hover:bg-zinc-900 transition-all relative group"
     >
-      <div draggable="true" onDragStart={(e: React.DragEvent<HTMLDivElement>) => e.dataTransfer.setData("cardId", id)} className="w-full h-full">
+      {/* Use pointer-events-none to prevent inner elements from blocking the drag */}
+      <div className="w-full h-full pointer-events-none">
         <div className="flex justify-between items-start mb-2">
           <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{issueKey}</span>
           {currentColumn === 'backlog' && status && (
@@ -232,13 +254,24 @@ const JiraCreateModal = ({ boardId, setCards, onClose }: any) => {
     e.preventDefault();
     if (!formData.summary.trim()) return;
 
-    const toastId = toast.loading(`Creating ${formData.type} in Sprint...`);
+    const toastId = toast.loading(`Creating ${formData.type}...`);
     try {
+      // Calls the server action to create the issue in Jira
       const jiraIssue = await createJiraIssue(formData.summary, boardId, formData.type, sprintId);
+      
+      // Automatically transition the new issue to "To Do" status
       await updateIssueStatus(jiraIssue.key, "To Do");
-      const newIssue = { id: jiraIssue.id, key: jiraIssue.key, summary: formData.summary, column: 'todo', status: 'To Do' };
+      
+      const newIssue = { 
+        id: jiraIssue.id, 
+        key: jiraIssue.key, 
+        summary: formData.summary, 
+        column: 'todo', 
+        status: 'To Do' 
+      };
+
       setCards((pv: any) => [...pv, newIssue]);
-      toast.success(`${jiraIssue.key} created`, { id: toastId });
+      toast.success(`${jiraIssue.key} created in TODO`, { id: toastId });
       onClose();
     } catch (err) {
       toast.error("Jira sync failed", { id: toastId });
@@ -246,28 +279,62 @@ const JiraCreateModal = ({ boardId, setCards, onClose }: any) => {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} className="relative w-full max-w-xl bg-[#0f0f0f] border border-white/10 rounded-[40px] p-10 shadow-2xl">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+      animate={{ opacity: 1, scale: 1, y: 0 }} 
+      className="relative w-full max-w-xl bg-[#0f0f0f] border border-white/10 rounded-[40px] p-10 shadow-2xl"
+    >
       <div className="flex justify-between items-start mb-8">
         <div>
           <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white leading-none">CREATE ISSUE</h2>
-          <p className="text-[9px] text-lime-400 font-bold uppercase tracking-widest mt-2">Targeting: {sprintId || "Backlog"}</p>
+          <p className="text-[9px] text-lime-400 font-bold uppercase tracking-widest mt-2">
+            Target: {sprintId ? `Sprint ${sprintId}` : "Backlog"}
+          </p>
         </div>
-        <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors"><FiX size={20}/></button>
+        <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+          <FiX size={20}/>
+        </button>
       </div>
+
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="flex bg-black/40 p-1.5 rounded-2xl gap-2 border border-white/5">
           {["Task", "Bug", "Story"].map(t => (
-            <button key={t} type="button" onClick={() => setFormData({...formData, type: t})} 
-              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.type === t ? "bg-lime-400 text-black shadow-lg" : "text-zinc-600 hover:text-zinc-400"}`}>
+            <button 
+              key={t} 
+              type="button" 
+              onClick={() => setFormData({...formData, type: t})} 
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${
+                formData.type === t ? "bg-lime-400 text-black shadow-lg" : "text-zinc-600 hover:text-zinc-400"
+              }`}
+            >
               {t}
             </button>
           ))}
         </div>
-        <input autoFocus required value={formData.summary} onChange={(e) => setFormData({...formData, summary: e.target.value})} 
-          className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-5 text-sm text-white focus:outline-none focus:border-lime-400 transition-colors placeholder:text-zinc-700" placeholder="ISSUE SUMMARY" />
+
+        <input 
+          autoFocus 
+          required 
+          value={formData.summary} 
+          onChange={(e) => setFormData({...formData, summary: e.target.value})} 
+          className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-5 text-sm text-white focus:outline-none focus:border-lime-400 transition-colors placeholder:text-zinc-700" 
+          placeholder="ISSUE SUMMARY" 
+        />
+
         <div className="flex justify-end gap-4 pt-4 border-t border-white/5">
-          <button type="button" onClick={onClose} className="text-[10px] font-black uppercase text-zinc-600 tracking-widest hover:text-white transition-colors">CANCEL</button>
-          <button type="submit" className="px-10 py-4 bg-lime-400 text-black rounded-2xl text-[10px] font-black uppercase hover:bg-lime-500 transition-all">CREATE</button>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="text-[10px] font-black uppercase text-zinc-600 tracking-widest hover:text-white transition-colors"
+          >
+            CANCEL
+          </button>
+          <button 
+            type="submit" 
+            className="px-10 py-4 bg-lime-400 text-black rounded-2xl text-[10px] font-black uppercase hover:bg-lime-500 transition-all"
+          >
+            CREATE
+          </button>
         </div>
       </form>
     </motion.div>
