@@ -9,7 +9,7 @@ import {
   createJiraIssue, 
   moveIssueToSprint, 
   moveIssueToBacklog 
-} from "../../../services/jira"; 
+} from "../../services/jira"; 
 import { useSearchParams } from 'next/navigation';
 
 // Explicit interfaces to prevent build-time type errors

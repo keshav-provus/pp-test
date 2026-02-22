@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { getBoardData } from '../../../services/jira';
+import { getBoardData } from '../pp-test/services/jira';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiLayers, FiZap, FiSearch, FiLoader } from 'react-icons/fi';
 

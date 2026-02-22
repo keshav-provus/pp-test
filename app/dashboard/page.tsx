@@ -9,7 +9,7 @@ import { toast, Toaster } from "sonner";
 import { BoardSelector } from "@/components/pages/board-selector";
 import { SprintSelector } from "@/components/pages/sprint-selector";
 import { IssueSelector } from "@/components/pages/issue-selector";
-import { getIssuesBySprint, getBoardBacklog } from "../../../services/jira";
+import { getIssuesBySprint, getBoardBacklog } from "../../services/jira";
 
 // Defined interfaces to satisfy TypeScript and prevent deployment failures
 interface JiraIssue {

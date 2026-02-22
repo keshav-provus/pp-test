@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { BoardSelector } from "@/components/pages/board-selector";
 import { SprintSelector } from "@/components/pages/sprint-selector";
 import { IssueSelector } from "@/components/pages/issue-selector";
-import { getIssuesBySprint, getIssuesByBoard } from "../../../services/jira";
+import { getIssuesBySprint, getIssuesByBoard } from "../../services/jira";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast, Toaster } from "sonner";
