@@ -375,3 +375,27 @@ export async function moveIssueToSprint(issueKey: string, sprintId: string) {
   if (response.status === 204 || response.ok) return true;
   throw new Error("Failed to move issue to sprint");
 }
+
+export async function updateStoryPoints(issueKey: string, points: number) {
+  const config = getJiraConfig();
+
+  const response = await fetch(
+    `${config.baseUrl}/rest/api/2/issue/${issueKey}`,
+    {
+      method: "PUT",
+      headers: config.headers as HeadersInit,
+      body: JSON.stringify({
+        fields: {
+          customfield_10026: points,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Jira Update Failed: ${errorBody}`);
+  }
+
+  return { success: true };
+}
