@@ -9,9 +9,10 @@ import { toast, Toaster } from "sonner";
 import { BoardSelector } from "@/components/pages/board-selector";
 import { SprintSelector } from "@/components/pages/sprint-selector";
 import { IssueSelector } from "@/components/pages/issue-selector";
+import { JoinSession } from "@/components/pages/join-session";
 import { getIssuesBySprint, getBoardBacklog } from "../../../services/jira";
+import { initBackgroundSocket } from "@/lib/socket"; // Background socket utility
 
-// Defined interfaces to satisfy TypeScript and prevent deployment failures
 interface JiraIssue {
   id: string;
   key: string;
@@ -82,8 +83,16 @@ function DashboardContent() {
     if (step === 'launch' && (boardId || sprintId)) {
       refreshJiraData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, boardId, sprintId]);
+
+  /**
+   * Optimization: Pre-warm the socket connection the moment 
+   * the host initiates the creation flow.
+   */
+  const handleStartCreation = () => {
+    initBackgroundSocket(); 
+    updateURL({ step: 'board' });
+  };
 
   const updateURL = (params: Record<string, string | null>) => {
     const newParams = new URLSearchParams(searchParams.toString());
@@ -129,8 +138,9 @@ function DashboardContent() {
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              {/* Point 1 & 2: Background socket creation on click */}
               <button 
-                onClick={() => updateURL({ step: 'board' })}
+                onClick={handleStartCreation}
                 className="group relative bg-lime-400 p-8 rounded-[40px] flex flex-col justify-between items-start text-black h-64 hover:scale-[1.02] transition-transform duration-300 shadow-2xl shadow-lime-400/10"
               >
                 <Plus size={40} className="mb-8" />
@@ -140,7 +150,10 @@ function DashboardContent() {
                 </div>
               </button>
 
-              <div className="bg-zinc-900 border border-white/10 p-8 rounded-[40px] flex flex-col justify-between h-64 group cursor-pointer hover:bg-zinc-800/50 transition-colors">
+              <div 
+                onClick={() => updateURL({ step: 'join' })}
+                className="bg-zinc-900 border border-white/10 p-8 rounded-[40px] flex flex-col justify-between h-64 group cursor-pointer hover:bg-zinc-800/50 transition-colors"
+              >
                 <Users className="w-10 h-10 text-lime-400 mb-8 group-hover:animate-bounce" />
                 <h2 className="text-3xl font-black uppercase italic leading-none text-white">Join Room</h2>
               </div>
@@ -150,6 +163,13 @@ function DashboardContent() {
                 <h2 className="text-3xl font-black uppercase italic leading-none text-white">History</h2>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Step 1: Join Session UI */}
+        {step === 'join' && (
+          <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500">
+            <JoinSession />
           </div>
         )}
 
@@ -167,6 +187,7 @@ function DashboardContent() {
           </div>
         )}
 
+        {/* Step 3: Launch Arena with Drag-to-Vote Logic */}
         {step === 'launch' && (
           <div className="w-full flex-1 flex flex-col min-h-0 animate-in fade-in duration-500">
             <div className="flex justify-between items-end mb-6 shrink-0 px-2">
@@ -179,7 +200,10 @@ function DashboardContent() {
                <IssueSelector 
                 preFetchedIssues={issues} 
                 onSync={refreshJiraData} 
-                onLaunch={(issue: JiraIssue) => router.push(`/poker/${issue.key}`)} 
+                onLaunch={(issue: JiraIssue) => {
+                  // Reuses the background socket connection
+                  router.push(`/poker/${issue.key}`);
+                }} 
                />
             </div>
           </div>
