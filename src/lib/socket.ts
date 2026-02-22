@@ -1,16 +1,36 @@
+"use client";
+
 import io from "socket.io-client";
-import type { Socket } from "socket.io-client";
 
-let socket: Socket | null = null;
+// 1. Magically infers the exact Socket type from the io() function
+// This avoids importing the 'Socket' class/type entirely, preventing TS2749!
+type ClientSocket = ReturnType<typeof io>;
 
-export const getSocket = () => {
+let socket: ClientSocket | null = null;
+
+export const getSocket = (): ClientSocket => {
   if (!socket) {
-    socket = io({ autoConnect: false });
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+    
+    socket = io(socketUrl, {
+      autoConnect: false,
+      reconnection: true,
+      transports: ["websocket"],
+    });
   }
+
   return socket;
 };
 
+/**
+ * Background pre-warming to optimize connection speed.
+ */
 export const initBackgroundSocket = () => {
   const s = getSocket();
-  if (!s.connected) s.connect();
+  
+  // No need for instanceof, 's' is strictly typed by ReturnType
+  if (s && !s.connected) {
+    s.connect();
+    console.log("Socket background pre-warming initiated...");
+  }
 };
