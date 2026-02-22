@@ -36,7 +36,10 @@ export default async function PokerPage({
       <div className="flex-1">
         <PokerSession 
           sessionId={issueKey} 
-          user={session.user} 
+          user={{
+            ...session.user,
+            name: session.user.name ?? "Unknown"
+          }} 
           currentIssue={issue}
           onReturnToSelector={() => redirect("/dashboard")}
         />
