@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { getSprints } from '../../services/jira';
+import { getSprints } from '../../../services/jira';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiSearch, FiCalendar, FiChevronRight, FiLoader } from 'react-icons/fi';
 

@@ -1,15 +1,30 @@
+"use client";
+
 import React from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { 
   Users, 
   Zap, 
   MousePointer2, 
   BarChart2, 
-  ChevronRight, 
   LayoutDashboard,
-  ArrowRight
+  ArrowRight,
+  Loader2 // Added for loading state feedback
 } from 'lucide-react';
 
 export default function Home() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  const handleGetStarted = () => {
+    if (status === 'authenticated') {
+      router.push('/dashboard');
+    } else {
+      router.push('/login');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#080808] text-zinc-100 selection:bg-indigo-500/30 font-sans">
       {/* Subtle Grid Background */}
@@ -29,8 +44,16 @@ export default function Home() {
           <a href="#" className="hover:text-zinc-100 transition-colors">Enterprise</a>
         </div>
         <div className="flex items-center gap-4">
-          <button className="text-sm font-medium text-zinc-400 hover:text-zinc-100">Sign in</button>
-          <button className="bg-zinc-100 text-black px-4 py-1.5 rounded-md text-sm font-semibold hover:bg-zinc-200 transition-all">
+          <button 
+            onClick={() => router.push('/login')} 
+            className="text-sm font-medium text-zinc-400 hover:text-zinc-100"
+          >
+            Sign in
+          </button>
+          <button 
+            onClick={handleGetStarted}
+            className="bg-zinc-100 text-black px-4 py-1.5 rounded-md text-sm font-semibold hover:bg-zinc-200 transition-all"
+          >
             Start Free
           </button>
         </div>
@@ -56,8 +79,16 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-            <button className="bg-white text-black px-8 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all">
-              Create a Session <ArrowRight size={18} />
+            <button 
+              onClick={handleGetStarted}
+              disabled={status === 'loading'}
+              className="bg-white text-black px-8 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all disabled:opacity-70"
+            >
+              {status === 'loading' ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <>Create a Session <ArrowRight size={18} /></>
+              )}
             </button>
             <button className="bg-zinc-900 border border-zinc-800 text-white px-8 py-3 rounded-lg font-semibold hover:bg-zinc-800 transition-all">
               How it works
