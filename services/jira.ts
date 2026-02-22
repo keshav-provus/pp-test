@@ -30,12 +30,14 @@ export interface JiraIssue {
  * Wrapping this in a function ensures we get the latest process.env values.
  */
 const getJiraConfig = () => {
-  const baseUrl = process.env.JIRA_BASE_URL || "";
-  const user = process.env.JIRA_USER || "";
-  const apiKey = process.env.JIRA_API_KEY || "";
+  const baseUrl = (process.env.JIRA_BASE_URL || "").trim();
+  const user = (process.env.JIRA_USER || "").trim();
+  const apiKey = (process.env.JIRA_API_KEY || "").trim();
 
   if (!baseUrl || !user || !apiKey) {
-    throw new Error("Missing JIRA environment variables (URL, User, or API Key)");
+    throw new Error(
+      "Missing JIRA environment variables (URL, User, or API Key)",
+    );
   }
 
   return {
@@ -51,7 +53,10 @@ const getJiraConfig = () => {
 /**
  * Generic paginated fetcher for Jira Agile APIs
  */
-async function fetchPaginatedData<T>(endpoint: string, dataKey: string): Promise<T[]> {
+async function fetchPaginatedData<T>(
+  endpoint: string,
+  dataKey: string,
+): Promise<T[]> {
   const config = getJiraConfig();
   let allData: T[] = [];
   let isLast = false;
@@ -60,7 +65,7 @@ async function fetchPaginatedData<T>(endpoint: string, dataKey: string): Promise
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
   while (!isLast) {
-    const separator = cleanEndpoint.includes('?') ? '&' : '?';
+    const separator = cleanEndpoint.includes("?") ? "&" : "?";
     const url = `${config.baseUrl}${cleanEndpoint}${separator}startAt=${startAt}`;
 
     const response = await fetch(url, {
@@ -78,7 +83,7 @@ async function fetchPaginatedData<T>(endpoint: string, dataKey: string): Promise
     const values = (json[dataKey] as T[]) || [];
     allData = [...allData, ...values];
 
-    isLast = json.isLast ?? (values.length < (json.maxResults || 50));
+    isLast = json.isLast ?? values.length < (json.maxResults || 50);
     startAt += values.length;
   }
   return allData;
@@ -88,7 +93,10 @@ async function fetchPaginatedData<T>(endpoint: string, dataKey: string): Promise
  * Fetch all boards accessible to the user
  */
 export async function getBoardData(): Promise<JiraBoard[]> {
-  const data = await fetchPaginatedData<JiraBoard>("/rest/agile/1.0/board", "values");
+  const data = await fetchPaginatedData<JiraBoard>(
+    "/rest/agile/1.0/board",
+    "values",
+  );
   return data.map((b) => ({
     id: b.id.toString(),
     name: b.name,
@@ -100,7 +108,10 @@ export async function getBoardData(): Promise<JiraBoard[]> {
  * Fetch active and future sprints for a specific Scrum board
  */
 export async function getSprints(boardId: string): Promise<JiraSprint[]> {
-  const data = await fetchPaginatedData<JiraSprint>(`/rest/agile/1.0/board/${boardId}/sprint`, "values");
+  const data = await fetchPaginatedData<JiraSprint>(
+    `/rest/agile/1.0/board/${boardId}/sprint`,
+    "values",
+  );
   return data
     .filter((s: JiraSprint) => s.state !== "closed")
     .map((s: JiraSprint) => ({
@@ -140,7 +151,9 @@ const mapIssue = (issue: JiraApiIssue): JiraIssue => ({
 /**
  * Fetch issues from a specific Sprint (Scrum flow)
  */
-export async function getIssuesBySprint(sprintId: string): Promise<JiraIssue[]> {
+export async function getIssuesBySprint(
+  sprintId: string,
+): Promise<JiraIssue[]> {
   const jql = encodeURIComponent("statusCategory != Done");
   const endpoint = `/rest/agile/1.0/sprint/${sprintId}/issue?jql=${jql}`;
   const data = await fetchPaginatedData<JiraApiIssue>(endpoint, "issues");
@@ -163,25 +176,33 @@ export async function getBoardBacklog(boardId: string): Promise<JiraIssue[]> {
   const data = await fetchPaginatedData<JiraApiIssue>(endpoint, "issues");
   return data.map((issue: JiraApiIssue) => ({
     ...mapIssue(issue),
-    source: 'backlog'
+    source: "backlog",
   }));
 }
 
 /**
- * Performs an issue status transition
+ * Performs an issue status transition with robust error checking
  */
-export async function updateIssueStatus(issueKey: string, targetStatus: string) {
+export async function updateIssueStatus(
+  issueKey: string,
+  targetStatus: string,
+) {
   const config = getJiraConfig();
   const transitionsUrl = `${config.baseUrl}/rest/api/2/issue/${issueKey}/transitions`;
-  
+
   const res = await fetch(transitionsUrl, {
     method: "GET",
     headers: config.headers as HeadersInit,
-    cache: 'no-store' // Prevent Vercel from caching the transitions list
+    cache: "no-store", // Critical: Prevent Vercel from caching old transition lists
   });
 
-  if (!res.ok) throw new Error("Failed to fetch available transitions");
-  
+  if (!res.ok) {
+    const errorBody = await res.text();
+    throw new Error(
+      `Failed to fetch available transitions for ${issueKey}: ${errorBody}`,
+    );
+  }
+
   const { transitions } = await res.json();
   interface JiraTransition {
     id: string;
@@ -192,11 +213,16 @@ export async function updateIssueStatus(issueKey: string, targetStatus: string) 
       };
     };
   }
-  const transition = transitions.find((t: JiraTransition) => 
-    t.name.toLowerCase() === targetStatus.toLowerCase()
+
+  const transition = transitions.find(
+    (t: JiraTransition) => t.name.toLowerCase() === targetStatus.toLowerCase(),
   );
 
-  if (!transition) throw new Error(`No transition found for status: ${targetStatus}`);
+  if (!transition) {
+    throw new Error(
+      `Jira Workflow Error: Status "${targetStatus}" is not a valid next step for ${issueKey}.`,
+    );
+  }
 
   const updateRes = await fetch(transitionsUrl, {
     method: "POST",
@@ -204,7 +230,10 @@ export async function updateIssueStatus(issueKey: string, targetStatus: string) 
     body: JSON.stringify({ transition: { id: transition.id } }),
   });
 
-  if (!updateRes.ok) throw new Error("Jira update failed");
+  if (!updateRes.ok) {
+    const updateError = await updateRes.text();
+    throw new Error(`Jira Transition Failed: ${updateError}`);
+  }
 
   return { success: true };
 }
@@ -219,7 +248,10 @@ export async function transitionToDone(issueKey: string) {
   const res = await fetch(transitionsUrl, {
     method: "GET",
     headers: config.headers as HeadersInit,
+    cache: "no-store",
   });
+
+  if (!res.ok) throw new Error("Failed to fetch available transitions");
 
   const { transitions } = await res.json();
   interface JiraTransition {
@@ -232,17 +264,21 @@ export async function transitionToDone(issueKey: string) {
     };
   }
 
-  const doneTransition = transitions.find((t: JiraTransition) => 
-    t.to.statusCategory.key === "done" || t.name.toLowerCase() === "done"
+  const doneTransition = transitions.find(
+    (t: JiraTransition) =>
+      t.to.statusCategory.key === "done" || t.name.toLowerCase() === "done",
   );
 
-  if (!doneTransition) throw new Error("No 'Done' transition available.");
+  if (!doneTransition)
+    throw new Error("No 'Done' transition available for this issue.");
 
-  await fetch(transitionsUrl, {
+  const updateRes = await fetch(transitionsUrl, {
     method: "POST",
     headers: config.headers as HeadersInit,
     body: JSON.stringify({ transition: { id: doneTransition.id } }),
   });
+
+  if (!updateRes.ok) throw new Error("Failed to transition issue to Done");
 
   return { success: true };
 }
@@ -250,17 +286,27 @@ export async function transitionToDone(issueKey: string) {
 /**
  * Creates a new Jira issue
  */
-export async function createJiraIssue(summary: string, boardId: string, issueType: string = "Task", sprintId?: string | null) {
+export async function createJiraIssue(
+  summary: string,
+  boardId: string,
+  issueType: string = "Task",
+  sprintId?: string | null,
+) {
   const config = getJiraConfig();
-  
-  // Fetch project key associated with the board
-  const boardRes = await fetch(`${config.baseUrl}/rest/agile/1.0/board/${boardId}/project`, {
-    headers: config.headers as HeadersInit,
-  });
+
+  const boardRes = await fetch(
+    `${config.baseUrl}/rest/agile/1.0/board/${boardId}/project`,
+    {
+      headers: config.headers as HeadersInit,
+    },
+  );
+
+  if (!boardRes.ok) throw new Error("Failed to find project for this board");
+
   const projectData = await boardRes.json();
   const projectKey = projectData.values[0]?.key;
 
-  if (!projectKey) throw new Error("Could not find project for this board");
+  if (!projectKey) throw new Error("Could not find project key for this board");
 
   interface JiraIssueFields {
     project: { key: string };
@@ -290,7 +336,7 @@ export async function createJiraIssue(summary: string, boardId: string, issueTyp
     console.error("Jira Create Error:", errorData);
     throw new Error("Failed to create Jira issue");
   }
-  
+
   return await response.json();
 }
 
@@ -299,14 +345,17 @@ export async function createJiraIssue(summary: string, boardId: string, issueTyp
  */
 export async function moveIssueToBacklog(issueKey: string) {
   const config = getJiraConfig();
-  const response = await fetch(`${config.baseUrl}/rest/agile/1.0/backlog/issue`, {
-    method: "POST",
-    headers: config.headers as HeadersInit,
-    body: JSON.stringify({ issues: [issueKey] }),
-  });
+  const response = await fetch(
+    `${config.baseUrl}/rest/agile/1.0/backlog/issue`,
+    {
+      method: "POST",
+      headers: config.headers as HeadersInit,
+      body: JSON.stringify({ issues: [issueKey] }),
+    },
+  );
 
   if (response.status === 204 || response.ok) return true;
-  throw new Error("Failed to move to backlog");
+  throw new Error("Failed to move issue to backlog");
 }
 
 /**
@@ -314,12 +363,15 @@ export async function moveIssueToBacklog(issueKey: string) {
  */
 export async function moveIssueToSprint(issueKey: string, sprintId: string) {
   const config = getJiraConfig();
-  const response = await fetch(`${config.baseUrl}/rest/agile/1.0/sprint/${sprintId}/issue`, {
-    method: "POST",
-    headers: config.headers as HeadersInit,
-    body: JSON.stringify({ issues: [issueKey] }),
-  });
+  const response = await fetch(
+    `${config.baseUrl}/rest/agile/1.0/sprint/${sprintId}/issue`,
+    {
+      method: "POST",
+      headers: config.headers as HeadersInit,
+      body: JSON.stringify({ issues: [issueKey] }),
+    },
+  );
 
   if (response.status === 204 || response.ok) return true;
-  throw new Error("Failed to move to sprint");
+  throw new Error("Failed to move issue to sprint");
 }
