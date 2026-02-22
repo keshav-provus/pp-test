@@ -3,38 +3,40 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import { getIssueDetails } from "../../../../services/jira";
 import { PokerSession } from "@/components/session";
-import { FiShare2, FiCopy } from "react-icons/fi";
-import { CopyLinkButton } from "@/components/ui/copy-link-button";
 
-export default async function PokerPage({ params }: { params: { id: string } }) {
+// In Next.js 15, params is a Promise
+export default async function PokerPage({ 
+  params 
+}: { 
+  params: Promise<{ id: string }> 
+}) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const issueKey = params.id;
-  const issue = await getIssueDetails(issueKey);
+  // Await the params to get the actual ID
+  const resolvedParams = await params;
+  const issueKey = resolvedParams.id;
+
+  if (!issueKey) {
+    redirect("/dashboard");
+  }
+
+  // Fetch issue details with the resolved key
+  let issue;
+  try {
+    issue = await getIssueDetails(issueKey);
+  } catch (error) {
+    console.error("Failed to load poker session:", error);
+    // Redirect if the issue doesn't exist to prevent a crash loop
+    redirect("/dashboard?error=issue-not-found");
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
-      {/* Session Header with Shareable Link */}
-      <div className="p-6 border-b border-white/5 flex justify-between items-center bg-black/20">
-        <div>
-          <h1 className="text-[10px] font-black uppercase tracking-[0.3em] text-lime-400">
-            SESSION ID: {issueKey}
-          </h1>
-          <p className="text-zinc-500 text-[10px] uppercase font-bold mt-1">
-            Share this ID with your team to join
-          </p>
-        </div>
-        <CopyLinkButton sessionId={issueKey} />
-      </div>
-
       <div className="flex-1">
         <PokerSession 
           sessionId={issueKey} 
-          user={{
-            ...session.user,
-            name: session.user.name ?? ""
-          }} 
+          user={session.user} 
           currentIssue={issue}
           onReturnToSelector={() => redirect("/dashboard")}
         />
