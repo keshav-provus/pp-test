@@ -53,9 +53,16 @@ export const authOptions: NextAuthOptions = {
             if (!email || !supabaseUrl) return false;
 
             const allowedDomains = ["provusinc.com", "provus.ai"];
-            const isAllowed = allowedDomains.some(domain => email.endsWith(`@${domain}`));
+            const isAllowedDomain = allowedDomains.some(domain => email.endsWith(`@${domain}`));
+            
+            // ✅ OPTION 2: Dev Environment Bypass
+            const isDevMode = process.env.NODE_ENV === "development";
 
-            if (!isAllowed) return false;
+            // Reject if not an allowed domain AND we are NOT in development mode
+            if (!isAllowedDomain && !isDevMode) {
+                console.warn(`Blocked login attempt from unauthorized email: ${email}`);
+                return false; 
+            }
 
             try {
                 const { error } = await supabase
