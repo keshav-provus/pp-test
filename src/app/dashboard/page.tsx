@@ -1,309 +1,211 @@
+
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Plus,
-  Users,
-  History,
-  LogOut,
-  ChevronLeft,
-  RefreshCw,
-} from "lucide-react";
-import { useState, useEffect, Suspense } from "react";
-import { toast, Toaster } from "sonner";
+import { Plus, Users, History, LogOut, Clock, ChevronRight, Circle } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-import { BoardSelector } from "@/components/pages/board-selector";
-import { SprintSelector } from "@/components/pages/sprint-selector";
-import { IssueSelector } from "@/components/pages/issue-selector";
-import { JoinSession } from "@/components/pages/join-session";
-import { getIssuesBySprint, getBoardBacklog } from "../../../services/jira";
+// ─── Static data ──────────────────────────────────────────────────────────────
+const RECENT = [
+  { name: "Sprint 42 Planning",  date: "Today, 2:30 PM",   votes: 8, status: "live",     pts: "—"   },
+  { name: "Backend Refactor",    date: "Yesterday, 11 AM", votes: 6, status: "done",     pts: "13"  },
+  { name: "Auth Flow Redesign",  date: "Mon, 9:00 AM",     votes: 9, status: "done",     pts: "8"   },
+  { name: "Dashboard MVP",       date: "Fri, 3:45 PM",     votes: 7, status: "done",     pts: "21"  },
+  { name: "Supabase Migration",  date: "Thu, 1:00 PM",     votes: 5, status: "done",     pts: "5"   },
+];
 
-interface JiraIssue {
-  id: string;
-  key: string;
-  summary: string;
-  status: string;
-  statusCategory: string;
-  column?: string;
-}
-
-interface Board {
-  id: string;
-  name: string;
-  type: string;
-}
-
-interface Sprint {
-  id: string;
-  name: string;
-}
-
-function DashboardContent() {
-  const { data: session } = useSession();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [issues, setIssues] = useState<JiraIssue[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const step = searchParams.get("step") || "setup";
-  const boardId = searchParams.get("boardId");
-  const sprintId = searchParams.get("sprintId");
-  const sessionId = searchParams.get("sessionId"); // Retrieve the active session ID
-
-  const refreshJiraData = async () => {
-    if (step !== "launch") return;
-
-    setLoading(true);
-    const toastId = toast.loading("Syncing Jira data...");
-    try {
-      let freshIssues: JiraIssue[] = [];
-      if (sprintId && boardId) {
-        const [sData, bData] = await Promise.all([
-          getIssuesBySprint(sprintId),
-          getBoardBacklog(boardId),
-        ]);
-
-        freshIssues = [
-          ...sData.map((i: JiraIssue) => ({
-            ...i,
-            column: i.statusCategory === "In Progress" ? "doing" : "todo",
-          })),
-          ...bData.map((i: JiraIssue) => ({
-            ...i,
-            column: "backlog",
-          })),
-        ];
-      }
-      setIssues(freshIssues);
-      toast.success("Board synced", { id: toastId });
-    } catch (err) {
-      console.error(err);
-      toast.error("Sync failed", { id: toastId });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (step === "launch" && (boardId || sprintId)) {
-      refreshJiraData();
-    }
-  }, [step, boardId, sprintId]);
-
-  /**
-   * Generates a unique Session ID the moment the host initiates the creation flow.
-   */
-  const handleStartCreation = () => {
-    const newSessionId = Math.random()
-      .toString(36)
-      .substring(2, 8)
-      .toUpperCase();
-    updateURL({ step: "board", sessionId: newSessionId });
-  };
-
-  const updateURL = (params: Record<string, string | null>) => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    Object.entries(params).forEach(([key, val]) => {
-      if (val) newParams.set(key, val);
-      else newParams.delete(key);
-    });
-    router.push(`/dashboard?${newParams.toString()}`);
-  };
-
+// ─── Tiny helpers ─────────────────────────────────────────────────────────────
+function TrafficLights({ title }: { title?: string }) {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] flex flex-col">
-      <Toaster theme="dark" position="bottom-right" />
-
-      <nav className="border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50 w-full shrink-0">
-        <div className="px-6 h-16 flex items-center justify-between w-full">
-          <div
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={() => router.push("/dashboard")}
-          >
-            <div className="w-8 h-8 bg-lime-400 rounded-lg rotate-12 flex items-center justify-center">
-              <span className="text-black font-black text-xl leading-none">
-                P
-              </span>
-            </div>
-            <span className="font-black italic tracking-tighter text-xl uppercase">
-              Provus Poker
-            </span>
-          </div>
-          {step !== "setup" && (
-            <button
-              onClick={() => router.back()}
-              className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-xs font-black uppercase tracking-widest"
-            >
-              <ChevronLeft size={16} /> Back
-            </button>
-          )}
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-zinc-400 hidden md:block">
-              {session?.user?.email}
-            </span>
-            <button
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="p-2 hover:text-red-500 transition-colors"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      <main className="w-full flex-1 flex flex-col min-h-0 px-6 py-12 overflow-y-auto">
-        {step === "setup" && (
-          <div className="max-w-7xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <header className="mb-12">
-              <h1 className="text-5xl font-black italic uppercase tracking-tighter mb-2">
-                Welcome back,{" "}
-                <span className="text-lime-400">
-                  {session?.user?.name?.split(" ")[0]}
-                </span>
-              </h1>
-              <p className="text-zinc-500 max-w-lg italic">
-                Ready to estimate? Start a session below.
-              </p>
-            </header>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-              <button
-                onClick={handleStartCreation}
-                className="group relative bg-lime-400 p-8 rounded-[40px] flex flex-col justify-between items-start text-black h-64 hover:scale-[1.02] transition-transform duration-300 shadow-2xl shadow-lime-400/10"
-              >
-                <Plus size={40} className="mb-8" />
-                <div>
-                  <h2 className="text-3xl font-black uppercase italic leading-none">
-                    Create
-                    <br />
-                    Session
-                  </h2>
-                  <p className="text-black/60 text-sm mt-2 font-medium italic">
-                    Start a new poker room
-                  </p>
-                </div>
-              </button>
-
-              <div
-                onClick={() => updateURL({ step: "join" })}
-                className="bg-zinc-900 border border-white/10 p-8 rounded-[40px] flex flex-col justify-between h-64 group cursor-pointer hover:bg-zinc-800/50 transition-colors"
-              >
-                <Users className="w-10 h-10 text-lime-400 mb-8 group-hover:animate-bounce" />
-                <h2 className="text-3xl font-black uppercase italic leading-none text-white">
-                  Join Room
-                </h2>
-              </div>
-
-              <div className="bg-zinc-900 border border-white/10 p-8 rounded-[40px] flex flex-col justify-between h-64 group cursor-pointer hover:bg-zinc-800/50 transition-colors">
-                <History className="w-10 h-10 text-zinc-500 mb-8" />
-                <h2 className="text-3xl font-black uppercase italic leading-none text-white">
-                  History
-                </h2>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {step === "join" && (
-          <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500">
-            <JoinSession />
-          </div>
-        )}
-
-        {step === "board" && (
-          <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500">
-            <h2 className="text-4xl font-black italic uppercase mb-8 tracking-tighter">
-              Select Board
-            </h2>
-            <BoardSelector
-              onSelect={(b: Board) =>
-                updateURL({
-                  step: b.type === "scrum" ? "sprint" : "launch",
-                  boardId: b.id,
-                })
-              }
-            />
-          </div>
-        )}
-
-        {step === "sprint" && boardId && (
-          <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500">
-            <h2 className="text-4xl font-black italic uppercase mb-8 tracking-tighter">
-              Select Sprint
-            </h2>
-            <SprintSelector
-              boardId={boardId}
-              onSelect={(s: Sprint) =>
-                updateURL({ step: "launch", sprintId: s.id })
-              }
-            />
-          </div>
-        )}
-
-        {/* Step 3: Launch Arena with Drag-to-Vote Logic */}
-        {step === "launch" && (
-          <div className="w-full flex-1 flex flex-col min-h-0 animate-in fade-in duration-500">
-            <div className="flex justify-between items-end mb-6 shrink-0 px-2">
-              <div className="flex items-center gap-4">
-                <h2 className="text-4xl font-black italic uppercase tracking-tighter">
-                  Arena
-                </h2>
-                {sessionId && (
-                  <span className="px-3 py-1 bg-lime-400/10 text-lime-400 text-xs font-black rounded-lg border border-lime-400/20">
-                    ID: {sessionId}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={refreshJiraData}
-                className="flex items-center gap-2 px-6 py-3 bg-zinc-900 border border-white/10 rounded-2xl text-[10px] font-black uppercase hover:border-lime-400 transition-all"
-              >
-                <RefreshCw
-                  size={14}
-                  className={loading ? "animate-spin" : ""}
-                />{" "}
-                Sync
-              </button>
-            </div>
-            <div className="flex-1 min-h-0">
-              <IssueSelector
-                preFetchedIssues={issues}
-                onSync={refreshJiraData}
-                onLaunch={(issue: JiraIssue) => {
-                  if (!sessionId) {
-                    toast.error(
-                      "Session ID missing. Please recreate the session.",
-                    );
-                    return;
-                  }
-
-                  // ✅ Store the issue locally so the Host can bring it into the Arena
-                  sessionStorage.setItem(`poker_issue_${sessionId}`, JSON.stringify(issue));
-
-                  // Push host to arena with privileges
-                  router.push(`/poker/${sessionId}?host=true`);
-                }}
-              />
-            </div>
-          </div>
-        )}
-      </main>
+    <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 bg-black/20">
+      <div className="flex items-center gap-1.5">
+        <span className="w-3 h-3 rounded-full bg-red-500/80" />
+        <span className="w-3 h-3 rounded-full bg-yellow-500/80" />
+        <span className="w-3 h-3 rounded-full bg-green-500/80" />
+      </div>
+      {title && <span className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase">{title}</span>}
     </div>
   );
 }
 
-export default function DashboardPage() {
+function GlassPanel({ children, className, title }: { children: React.ReactNode; className?: string; title?: string; }) {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-          <RefreshCw className="animate-spin text-lime-400" size={32} />
+    <div className={cn(
+      "relative flex flex-col rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl overflow-hidden transition-all duration-300",
+      className
+    )}>
+      {/* Subtle top highlight */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+      {title && <TrafficLights title={title} />}
+      <div className="flex-1 flex flex-col">{children}</div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+export default function DashboardPage() {
+  const { data: session } = useSession();
+  const firstName = session?.user?.name?.split(" ")[0] ?? "there";
+  const email     = session?.user?.email ?? "";
+
+  // Explicitly check if the user is an admin
+  const isAdmin = session?.user?.role === "admin";
+
+  return (
+    <div className="min-h-screen bg-[#060808] text-slate-100 font-sans relative overflow-x-hidden selection:bg-lime-500/30">
+      
+      {/* ── Ambient Background Glows ── */}
+      <div className="fixed top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-lime-500/10 blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
+
+      {/* ── Navbar ── */}
+      <nav className="sticky top-0 z-50 border-b border-white/10 bg-black/40 backdrop-blur-2xl">
+        <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-lime-400 flex items-center justify-center shadow-[0_0_15px_rgba(163,230,53,0.3)]">
+              <span className="font-bold text-black text-sm">P</span>
+            </div>
+            <span className="font-semibold tracking-tight text-lg">
+              Provus<span className="text-lime-400">Poker</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 pl-4 pr-1 py-1 rounded-full border border-white/10 bg-white/5 backdrop-blur-md">
+              <div className="flex flex-col text-right leading-tight">
+                <span className="text-sm font-medium">{firstName}</span>
+                <span className="text-[10px] text-muted-foreground">{email.split("@")[1]}</span>
+              </div>
+              <Avatar className="h-8 w-8 border border-white/20">
+                <AvatarFallback className="bg-gradient-to-br from-lime-400 to-lime-600 text-black font-bold">
+                  {firstName.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-colors" onClick={() => signOut({ callbackUrl: "/login" })}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      }
-    >
-      <DashboardContent />
-    </Suspense>
+      </nav>
+
+      {/* ── Main Content ── */}
+      <main className="relative z-10 max-w-[1200px] mx-auto px-6 py-12">
+        
+        {/* Header */}
+        <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">
+            Ready to estimate, <span className="text-lime-400">{firstName}?</span>
+          </h1>
+          <p className="text-muted-foreground font-light text-lg">
+            Create a new session or jump back into your recent workflow.
+          </p>
+        </div>
+
+        {/* Actions Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          
+          {/* Primary Action: Create Session */}
+          <GlassPanel className="md:col-span-2 group hover:border-lime-500/30 hover:shadow-[0_0_40px_rgba(163,230,53,0.1)] cursor-pointer">
+            <div className="p-8 md:p-10 flex flex-col justify-between h-full min-h-[280px]">
+              <div className="w-14 h-14 rounded-xl bg-lime-400 text-black flex items-center justify-center shadow-[0_0_20px_rgba(163,230,53,0.4)] group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300">
+                <Plus className="h-7 w-7" />
+              </div>
+              <div className="mt-auto pt-8">
+                <h2 className="text-3xl font-bold tracking-tight mb-2">Create Session</h2>
+                <div className="flex items-center justify-between">
+                  <p className="text-muted-foreground text-sm">Start a new poker room for your sprint.</p>
+                  <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-lime-400 group-hover:text-black group-hover:border-lime-400 transition-all">
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </GlassPanel>
+
+          {/* Secondary Actions: Stacked */}
+          <div className="flex flex-col gap-6">
+            <GlassPanel className="flex-1 group hover:border-blue-500/30 hover:bg-white/[0.04] cursor-pointer" title="Join">
+              <div className="p-6 flex flex-col justify-between h-full">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-4">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold mb-1">Join Room</h3>
+                  <p className="text-xs text-muted-foreground">Enter a code to jump in</p>
+                </div>
+              </div>
+            </GlassPanel>
+
+            <GlassPanel className="flex-1 group hover:border-pink-500/30 hover:bg-white/[0.04] cursor-pointer" title="Archive">
+              <div className="p-6 flex flex-col justify-between h-full">
+                <div className="w-10 h-10 rounded-lg bg-pink-500/10 border border-pink-500/20 text-pink-400 flex items-center justify-center mb-4">
+                  <History className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold mb-1">History</h3>
+                  <p className="text-xs text-muted-foreground">Review past estimations</p>
+                </div>
+              </div>
+            </GlassPanel>
+          </div>
+        </div>
+
+        {/* Recent Sessions Table */}
+        <GlassPanel title="Recent Sessions" className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 fill-mode-both">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-black/20 hover:bg-black/20">
+                <TableRow className="border-white/5">
+                  <TableHead className="text-xs tracking-widest uppercase text-muted-foreground h-12">Session Name</TableHead>
+                  <TableHead className="text-xs tracking-widest uppercase text-muted-foreground h-12">Date</TableHead>
+                  <TableHead className="text-xs tracking-widest uppercase text-muted-foreground text-center h-12">Votes</TableHead>
+                  <TableHead className="text-xs tracking-widest uppercase text-muted-foreground h-12">Result</TableHead>
+                  <TableHead className="text-xs tracking-widest uppercase text-muted-foreground h-12">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {RECENT.map((row, i) => (
+                  <TableRow key={i} className="border-white/5 hover:bg-white/5 cursor-pointer transition-colors">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <div className={cn("w-1.5 h-1.5 rounded-full", row.status === "live" ? "bg-lime-400 shadow-[0_0_8px_rgba(163,230,53,0.8)]" : "bg-white/20")} />
+                        {row.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3 w-3" />
+                        {row.date}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center text-muted-foreground">{row.votes}</TableCell>
+                    <TableCell className="font-semibold text-slate-200">
+                      {row.pts === "—" ? <span className="text-white/20">—</span> : `${row.pts} pts`}
+                    </TableCell>
+                    <TableCell>
+                      {row.status === "live" ? (
+                        <Badge variant="outline" className="border-lime-500/30 text-lime-400 bg-lime-400/10 gap-1.5 py-0.5 animate-pulse">
+                          <Circle className="h-2 w-2 fill-current" /> Live
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-white/10 text-muted-foreground bg-white/5 gap-1.5 py-0.5">
+                          Done
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </GlassPanel>
+
+      </main>
+    </div>
   );
 }

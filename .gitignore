@@ -15,6 +15,7 @@ coverage
 *.csr
 *.der
 
+
 # Optional: Ignore build artifacts
 build
 out
