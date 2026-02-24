@@ -45,9 +45,6 @@ function GlassPanel({ children, className, title }: { children: React.ReactNode;
     </div>
   );
 }
-import { useRouter } from "next/navigation";
-import { Plus, Users, History, LogOut, LayoutDashboard, ShieldAlert } from "lucide-react";
-import Link from "next/link"; // Use Link for faster navigation
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function DashboardPage() {
