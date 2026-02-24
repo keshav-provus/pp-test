@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ShieldX, Spade } from "lucide-react";
 
-export default function AuthError() {
+// 1. Create a component that contains the logic using searchParams
+function AuthErrorContent() {
   const params = useSearchParams();
   const router = useRouter();
   const error = params.get("error");
@@ -142,5 +143,14 @@ export default function AuthError() {
         </button>
       </div>
     </div>
+  );
+}
+
+// 2. Wrap that component in Suspense for the default export
+export default function AuthError() {
+  return (
+    <Suspense fallback={null}>
+      <AuthErrorContent />
+    </Suspense>
   );
 }
