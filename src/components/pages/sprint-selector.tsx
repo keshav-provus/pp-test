@@ -4,18 +4,22 @@ import React, { useState, useEffect } from 'react';
 import { getSprints } from '../../../services/jira';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiSearch, FiCalendar, FiChevronRight, FiLoader } from 'react-icons/fi';
+import { useTheme } from "next-themes";
+import { useColor } from "@/context/ColorContext";
 
 type Sprint = {
   id: string;
   name: string;
   state: string;
-  // Add other properties as needed
 };
 
 export const SprintSelector = ({ boardId, onSelect }: { boardId: string, onSelect: (sprint: Sprint) => void }) => {
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+
+  const { theme } = useTheme();
+  const { primaryColor } = useColor();
 
   useEffect(() => {
     getSprints(boardId).then((data) => {
@@ -30,22 +34,24 @@ export const SprintSelector = ({ boardId, onSelect }: { boardId: string, onSelec
 
   if (loading) return (
     <div className="py-24 flex flex-col items-center justify-center gap-4 w-full">
-      <FiLoader className="animate-spin text-indigo-500" size={32} />
-      <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Loading Sprints...</p>
+      {/* Updated: Loader uses primary brand color */}
+      <FiLoader className="animate-spin text-primary" size={32} />
+      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Loading Sprints...</p>
     </div>
   );
 
   return (
-    <div className="w-full space-y-8">
-      {/* Search Input */}
+    <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Search Input - Adaptive Theme */}
       <div className="relative w-full max-w-xl">
-        <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+        <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input 
           type="text"
-          placeholder="Filter sprints..."
+          placeholder="FILTER SPRINTS BY NAME..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full bg-neutral-900/50 border border-neutral-800 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-indigo-500 transition-all"
+          /* Updated: Semantic background and focus border */
+          className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-primary transition-all placeholder:text-muted-foreground/30 text-foreground"
         />
       </div>
 
@@ -60,18 +66,28 @@ export const SprintSelector = ({ boardId, onSelect }: { boardId: string, onSelec
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               onClick={() => onSelect(sprint)}
-              className="group p-6 rounded-3xl border border-neutral-800 bg-[#121212] hover:border-indigo-500 transition-all flex items-center justify-between"
+              /* Updated: bg-card and hover primary border */
+              className="group p-6 rounded-3xl border border-border bg-card hover:border-primary hover:bg-muted/50 transition-all flex items-center justify-between shadow-sm"
             >
               <div className="flex items-center gap-5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                {/* Sprint State Indicator */}
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                  sprint.state === 'active' 
+                    ? 'bg-emerald-500/10 text-emerald-500' 
+                    : 'bg-muted text-muted-foreground'
+                }`}>
                   <FiCalendar size={20} />
                 </div>
                 <div className="text-left">
-                  <h4 className="text-base font-bold text-neutral-200 group-hover:text-white transition-colors">{sprint.name}</h4>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{sprint.state}</span>
+                  <h4 className="text-base font-black italic uppercase tracking-tight text-foreground group-hover:text-primary transition-colors">
+                    {sprint.name}
+                  </h4>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
+                    {sprint.state}
+                  </span>
                 </div>
               </div>
-              <FiChevronRight className="text-zinc-800 group-hover:text-indigo-500 transition-colors" size={24} />
+              <FiChevronRight className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" size={24} />
             </motion.button>
           ))}
         </AnimatePresence>

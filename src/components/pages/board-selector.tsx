@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { getBoardData } from '../../../services/jira';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiLayers, FiZap, FiSearch, FiLoader } from 'react-icons/fi';
+import { useTheme } from "next-themes"; // Integrated theme hook
+import { useColor } from "@/context/ColorContext"; // Integrated color hook
 
 type Board = {
   id: string;
@@ -15,7 +17,10 @@ export const BoardSelector = ({ onSelect }: { onSelect: (board: Board) => void }
   const [boards, setBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  // Fetch board data on mount
+
+  const { theme } = useTheme();
+  const { primaryColor } = useColor();
+
   useEffect(() => {
     getBoardData().then((data) => {
       setBoards(data);
@@ -29,26 +34,28 @@ export const BoardSelector = ({ onSelect }: { onSelect: (board: Board) => void }
 
   if (loading) return (
     <div className="py-24 flex flex-col items-center justify-center gap-4 w-full">
-      <FiLoader className="animate-spin text-lime-400" size={32} />
-      <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Syncing Jira Boards...</p>
+      {/* Updated: Loader uses primary brand color */}
+      <FiLoader className="animate-spin text-primary" size={32} />
+      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Syncing Jira Boards...</p>
     </div>
   );
 
   return (
     <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Search Input - Matched to Dashboard Theme */}
+      {/* Search Input - Matched to Dynamic Theme */}
       <div className="relative w-full max-w-xl">
-        <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+        <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input 
           type="text"
           placeholder="FILTER BOARDS BY NAME..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-lime-400 transition-all placeholder:text-zinc-700"
+          /* Updated: Focus border and background follow theme variables */
+          className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-primary transition-all placeholder:text-muted-foreground/40 text-foreground"
         />
       </div>
 
-      {/* 3-Column Grid - Provus Style */}
+      {/* 3-Column Grid - Adaptive Style */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence mode="popLayout">
           {filtered.map((board) => (
@@ -59,21 +66,28 @@ export const BoardSelector = ({ onSelect }: { onSelect: (board: Board) => void }
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               onClick={() => onSelect(board)}
-              className="group p-8 rounded-[40px] border border-white/10 bg-white/5 text-left hover:border-lime-400 hover:bg-white/10 transition-all flex flex-col justify-between h-52 relative overflow-hidden"
+              /* Updated: Hover state uses dynamic primary variable */
+              className="group p-8 rounded-[40px] border border-border bg-card text-left hover:border-primary hover:bg-muted/50 transition-all flex flex-col justify-between h-52 relative overflow-hidden shadow-sm"
             >
               <div className="flex justify-between items-start relative z-10">
-                <div className={`p-3 rounded-2xl transition-colors ${board.type === 'scrum' ? 'bg-black/20 text-lime-400 group-hover:bg-lime-400 group-hover:text-black' : 'bg-amber-500/10 text-amber-400 group-hover:bg-amber-400 group-hover:text-black'}`}>
+                {/* Updated: Icon colors mapped to primary/accent logic */}
+                <div className={`p-3 rounded-2xl transition-colors ${
+                  board.type === 'scrum' 
+                    ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground' 
+                    : 'bg-amber-500/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-white'
+                }`}>
                   {board.type === 'scrum' ? <FiLayers size={24} /> : <FiZap size={24} />}
                 </div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-600 group-hover:text-zinc-400 transition-colors">
+                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-foreground/60 transition-colors">
                   {board.type}
                 </span>
               </div>
-              <h3 className="text-xl font-black italic uppercase text-white tracking-tighter leading-tight relative z-10">
+              <h3 className="text-xl font-black italic uppercase text-foreground tracking-tighter leading-tight relative z-10">
                 {board.name}
               </h3>
+              {/* Updated: Ghost icon in background matches primary brand color */}
               <div className="absolute bottom-0 right-0 p-6 opacity-0 group-hover:opacity-10 transition-opacity">
-                <FiLayers size={80} className="text-lime-400" />
+                <FiLayers size={80} className="text-primary" />
               </div>
             </motion.button>
           ))}

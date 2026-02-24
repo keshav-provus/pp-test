@@ -232,7 +232,7 @@ export const PokerSession = ({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 key={id} 
-                className={`aspect-[3/4] rounded-[32px] border-2 flex flex-col items-center justify-center gap-4 transition-all ${hasVoted ? "border-lime-400 bg-lime-400/5 shadow-[0_0_30px_rgba(163,230,53,0.1)] text-white" : "border-white/10 bg-white/5 text-zinc-500"}`}
+                className={`aspect-[3/4] rounded-[32px] border-2 flex flex-col items-center justify-center gap-4 transition-all ${hasVoted ? "border-lime-400 bg-lime-400/5 shadow-[0_0_30px_rgba(var(--accent-rgb),0.1)] text-white" : "border-white/10 bg-white/5 text-zinc-500"}`}
               >
                 <span className="text-[10px] font-black uppercase">
                   {p.name?.split(' ')[0]} {p.userId === user.id && "(YOU)"}

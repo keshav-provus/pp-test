@@ -19,7 +19,8 @@ export default async function PokerPage({
   const isHost = resolvedSearchParams.host === "true";
 
   return (
-    <main className="h-screen bg-[#0a0a0a]">
+    /* UPDATED: Changed bg-[#0a0a0a] to bg-background and added text-foreground */
+    <main className="h-screen bg-background text-foreground transition-colors duration-500 overflow-hidden">
       <PokerSession 
         sessionId={resolvedParams.id} 
         user={{
