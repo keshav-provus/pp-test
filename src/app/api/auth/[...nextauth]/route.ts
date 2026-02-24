@@ -1,0 +1,140 @@
+import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
+import GoogleProvider, { GoogleProfile } from "next-auth/providers/google";
+import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
+import { ALLOWED_DOMAINS } from "@/lib/constants";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role: string;
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    role: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    role: string;
+  }
+}
+
+// Initialize Supabase with Service Role to bypass RLS for auth checks
+const supabase = createClient(
+  env.NEXT_PUBLIC_SUPABASE_URL,
+  env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export const authOptions: NextAuthOptions = {
+  providers: [
+    GoogleProvider({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          prompt: "select_account",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
+      profile(profile: GoogleProfile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+          role: "user", // Default role; will be overridden by DB value in jwt callback
+        };
+      },
+    }),
+  ],
+  session: {
+    strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 hours
+  },
+  callbacks: {
+    async signIn({ user, profile }) {
+      const email = profile?.email?.toLowerCase();
+      if (!email) return false;
+
+      // 1. Check if the domain is corporate (@provus.ai)
+      const isDomainAllowed = ALLOWED_DOMAINS.some((domain) => 
+        email.endsWith(`@${domain.toLowerCase()}`)
+      );
+
+      // 2. If not corporate, check the Supabase "allowed_users" table
+      let isUserExplicitlyAllowed = false;
+      if (!isDomainAllowed) {
+        const { data } = await supabase
+          .from("allowed_users")
+          .select("email")
+          .eq("email", email)
+          .single();
+
+        if (data) isUserExplicitlyAllowed = true;
+      }
+
+      // Final Gate: If neither, deny entry
+      if (!isDomainAllowed && !isUserExplicitlyAllowed) {
+        return "/auth/error?error=AccessDenied";
+      }
+
+      // 3. Sync User Profile to Supabase
+      try {
+        const { error } = await supabase.from("profiles").upsert(
+          {
+            id: user.id,
+            email: email,
+            display_name: user.name,
+            avatar_url: user.image,
+            last_login: new Date().toISOString(),
+          },
+          { onConflict: "email" }
+        );
+
+        if (error) {
+          console.error("Supabase Sync Error:", error.message);
+          return false;
+        }
+      } catch (e) {
+        console.error("Critical Sync Error:", e);
+        return false;
+      }
+
+      return true;
+    },
+
+    async jwt({ token, user }) {
+      // On initial sign-in, fetch the true role from the database
+      if (user) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        token.role = data?.role || "user";
+      }
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.role = token.role as string;
+      }
+      return session;
+    },
+  },
+  pages: {
+    signIn: "/login",
+    error: "/auth/error",
+  },
+  secret: env.NEXTAUTH_SECRET,
+};
+
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };
