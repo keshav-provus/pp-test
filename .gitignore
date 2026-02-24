@@ -1,2 +1,23 @@
 node_modules
 .env
+.env.local
+dist
+coverage
+*.log
+.idea
+.vscode
+.DS_Store       
+*.pem
+*.key
+*.crt
+*.pfx
+*.cer
+*.csr
+*.der
+
+# Optional: Ignore build artifacts
+build
+out
+
+.next/.next/
+.next/
