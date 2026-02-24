@@ -41,12 +41,57 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
   const [currentIssue, setCurrentIssue] = useState<Issue | null>(null);
   const [myVote, setMyVote] = useState<number | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
+  const [meetLink, setMeetLink] = useState<string | null>(null);
   
+  const [jiraUpdatedValue, setJiraUpdatedValue] = useState<number | null>(null);
+
   // Refs to prevent stale closures and infinite re-renders in WebSockets
   const activeChannelRef = useRef<RealtimeChannel | null>(null);
   const currentIssueRef = useRef<Issue | null>(null);
 
   const cardValues = [1, 2, 3, 5, 8, 13, 21];
+
+  // Consensus: compute average of all non-null votes
+  const computeAverage = () => {
+    const vals = Object.values(players)
+      .map(p => p.vote)
+      .filter((v): v is number => typeof v === "number");
+
+    if (vals.length === 0) return null;
+    const sum = vals.reduce((a, b) => a + b, 0);
+    return sum / vals.length;
+  };
+
+  // Compute all numeric votes once
+  const getNumericVotes = () => {
+    return Object.values(players)
+      .map(p => p.vote)
+      .filter((v): v is number => typeof v === "number");
+  };
+
+  const computeMinVote = () => {
+    const vals = getNumericVotes();
+    return vals.length ? Math.min(...vals) : null;
+  };
+
+  const computeMaxVote = () => {
+    const vals = getNumericVotes();
+    return vals.length ? Math.max(...vals) : null;
+  };
+
+  const minVote = computeMinVote();
+  const maxVote = computeMaxVote();
+  const averageVote = computeAverage();
+
+  const voteDifference =
+  minVote !== null && maxVote !== null
+    ? maxVote - minVote
+    : null;
+
+const needsDiscussion =
+  isRevealed &&
+  voteDifference !== null &&
+  voteDifference ==0;
 
   // Keep ref in sync with state for the socket callbacks to read without re-binding
   useEffect(() => {
@@ -88,11 +133,30 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
     activeChannelRef.current = channel;
 
     channel
+    .on(
+        "broadcast",
+        { event: "meet-link" },
+        ({ payload }: { payload: { url: string } }) => {
+          setMeetLink(payload.url);
+        }
+      )
+
       .on("broadcast", { event: "cast-vote" }, ({ payload }: { payload: { userId: string, value: number } }) => {
         setPlayers((prev) => ({
           ...prev,
           [payload.userId]: { ...prev[payload.userId], vote: payload.value }
         }));
+      })
+      .on("broadcast", { event: "reset-votes" }, () => {
+        setIsRevealed(false);
+        setMyVote(null);
+        setPlayers((prev) => {
+          const copy: Record<string, Player> = {};
+          Object.entries(prev).forEach(([k, v]) => {
+            copy[k] = { ...v, vote: null };
+          });
+          return copy;
+        });
       })
       .on("broadcast", { event: "reveal-votes" }, () => setIsRevealed(true))
       .on("broadcast", { event: "set-issue" }, ({ payload }: { payload: { issue: Issue } }) => {
@@ -161,10 +225,43 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
     });
   };
 
+  const generateMeetLink = async () => {
+  if (!activeChannelRef.current) return;
+
+  const url = "https://meet.google.com/new";
+  setMeetLink(url);
+
+  await activeChannelRef.current.send({
+    type: "broadcast",
+    event: "meet-link",
+    payload: { url },
+  });
+
+  window.open(url, "_blank");
+};
+
+
   const handleReveal = async () => {
     if (!activeChannelRef.current) return;
     setIsRevealed(true);
     await activeChannelRef.current.send({ type: "broadcast", event: "reveal-votes" });
+  };
+
+  const handleReset = async () => {
+    if (!activeChannelRef.current) return;
+    // locally clear
+    setIsRevealed(false);
+    setMyVote(null);
+    setPlayers((prev) => {
+      const copy: Record<string, Player> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        copy[k] = { ...v, vote: null };
+      });
+      return copy;
+    });
+
+    // notify others
+    await activeChannelRef.current.send({ type: "broadcast", event: "reset-votes" });
   };
 
   const handleSaveToJira = async (points: number) => {
@@ -174,6 +271,11 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
     try {
       await updateStoryPoints(currentIssue.key, points);
       toast.success(`${currentIssue.key} updated successfully!`, { id: tid });
+       // ✅ SHOW ONSCREEN MESSAGE
+      setJiraUpdatedValue(points);
+
+      // optional: auto-hide after 4 sec
+      setTimeout(() => setJiraUpdatedValue(null), 4000);
     } catch (err) {
       toast.error("Failed to sync with Jira", { id: tid });
     }
@@ -192,9 +294,13 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
     );
   }
 
+  const jiraConsensus = averageVote !== null ? Math.round(averageVote) : null;
+  const jiraMin = minVote;
+  const jiraMax = maxVote;
+
   return (
-    <div className="flex flex-col h-full gap-6 p-6 text-white max-w-7xl mx-auto">
-      {/* Header Controls */}
+<div className="flex flex-col flex-1 gap-6 p-6 text-white max-w-7xl mx-auto overflow-y-auto bg-[#0a0a0a]">
+            {/* Header Controls */}
       <div className="flex justify-between items-center bg-white/5 p-6 rounded-3xl border border-white/10">
         <div>
           <h1 className="text-lime-400 font-black text-sm tracking-widest uppercase bg-lime-400/10 px-3 py-1 rounded-md inline-block">
@@ -213,6 +319,9 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
 
           {isHost && (
             <>
+              <button onClick={handleReset} title="Reset votes" className="p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
+                <FiRotateCcw />
+              </button>
               {!isRevealed ? (
                 <button onClick={handleReveal} className="px-8 bg-lime-400 text-black rounded-2xl font-black uppercase text-[10px] flex items-center gap-2 hover:bg-white transition-colors">
                   <FiEye /> REVEAL
@@ -226,7 +335,93 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
           )}
         </div>
       </div>
+      {/* Consensus display - shown after reveal if there are votes */}
+      {/* CONSENSUS / MIN / MAX — shown after reveal */}
+      {isRevealed && averageVote !== null && (
+        <div className="mt-3 flex gap-4">
+          {/* Average */}
+          <div className="bg-white/3 p-3 rounded-xl">
+            <span className="text-xs font-bold text-zinc-400 uppercase">
+              Consensus (Avg)
+            </span>
+            <div className="text-2xl font-black">
+              {averageVote.toFixed(1)}
+            </div>
+          </div>
+
+          {/* Min */}
+          {minVote !== null && (
+            <div className="bg-white/3 p-3 rounded-xl">
+              <span className="text-xs font-bold text-zinc-400 uppercase">
+                Min
+              </span>
+              <div className="text-2xl font-black">
+                {minVote}
+              </div>
+            </div>
+          )}
+
+          {/* Max */}
+          {maxVote !== null && (
+            <div className="bg-white/3 p-3 rounded-xl">
+              <span className="text-xs font-bold text-zinc-400 uppercase">
+                Max
+              </span>
+              <div className="text-2xl font-black">
+                {maxVote}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       
+
+        {/* Host Save to Jira */}
+       {isHost && isRevealed && (
+        <div>
+         {/* Host Save to Jira */}
+          {isHost && isRevealed && averageVote !== null && (
+            <div className="bg-zinc-900 border border-white/10 p-4 rounded-3xl flex items-center gap-4 shadow-2xl">
+              
+              <span className="text-xs font-bold uppercase text-zinc-400 flex items-center gap-2">
+                <FiCheckCircle /> Save to Jira:
+              </span>
+
+              {/* MIN */}
+              {jiraMin !== null && (
+                <button
+                  onClick={() => handleSaveToJira(jiraMin)}
+                  className="px-4 h-10 rounded-xl bg-white/5 hover:bg-blue-500 hover:text-black font-black transition-all text-sm"
+                >
+                  Min ({jiraMin})
+                </button>
+              )}
+
+              {/* CONSENSUS */}
+              {jiraConsensus !== null && (
+                <button
+                  onClick={() => handleSaveToJira(jiraConsensus)}
+                  className="px-4 h-10 rounded-xl bg-lime-400 text-black font-black transition-all text-sm"
+                >
+                  Consensus ({jiraConsensus})
+                </button>
+              )}
+
+              {/* MAX */}
+              {jiraMax !== null && (
+                <button
+                  onClick={() => handleSaveToJira(jiraMax)}
+                  className="px-4 h-10 rounded-xl bg-white/5 hover:bg-red-500 hover:text-black font-black transition-all text-sm"
+                >
+                  Max ({jiraMax})
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+
       {/* PLAYERS GRID */}
       <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-6 content-start">
         <AnimatePresence>
@@ -260,23 +455,71 @@ export const PokerSession = ({ sessionId, user, isHost }: PokerSessionProps) => 
         ))}
       </div>
 
-       {/* Host Save to Jira */}
-       {isHost && isRevealed && (
-        <div className="fixed bottom-36 left-1/2 -translate-x-1/2 bg-zinc-900 border border-white/10 p-4 rounded-3xl flex items-center gap-4 shadow-2xl">
-          <span className="text-xs font-bold uppercase text-zinc-400 flex items-center gap-2">
-             <FiCheckCircle /> Submit to Jira:
+      {/* VOTING CARDS */}
+      {/* <div className="bg-black/40 border border-white/10 p-6 rounded-[40px] flex justify-center gap-4 overflow-x-auto">
+      </div> */}
+
+      {/* Discussion Alert */}
+      {needsDiscussion && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-6 bg-red-500/10 border border-red-500/40 text-red-400 px-6 py-4 rounded-2xl font-bold flex items-center justify-between gap-6"
+        >
+          <span>
+            ⚠️ Discussion needed — vote difference is {voteDifference}
           </span>
-          {cardValues.map(val => (
-            <button 
-              key={`final-${val}`}
-              onClick={() => handleSaveToJira(val)}
-              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-emerald-500 hover:text-black font-black transition-all text-sm"
+
+          {/* HOST */}
+          {isHost && !meetLink && (
+            <button
+              onClick={generateMeetLink}
+              className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white text-sm font-bold hover:bg-white/20 transition"
             >
-              {val}
+              Generate Google Meet
             </button>
-          ))}
-        </div>
+          )}
+
+          {/* PARTICIPANTS */}
+          {!isHost && meetLink && (
+            <a
+              href={meetLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-lime-400 text-black rounded-xl text-sm font-bold hover:bg-lime-300 transition"
+            >
+              Join Google Meet
+            </a>
+          )}
+
+          {/* HOST AFTER GENERATION */}
+          {isHost && meetLink && (
+            <a
+              href={meetLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-lime-400 text-black rounded-xl text-sm font-bold hover:bg-lime-300 transition"
+            >
+              Join Google Meet
+            </a>
+          )}
+        </motion.div>
       )}
+
+      {/* Jira Updated Message */}
+{jiraUpdatedValue !== null && (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0 }}
+    className="mt-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-6 py-3 rounded-2xl font-bold flex items-center gap-3 max-w-max"
+  >
+    <FiCheckCircle className="text-emerald-400" />
+    Jira updated with <span className="text-white">{jiraUpdatedValue}</span> story points
+  </motion.div>
+)}
+
+
     </div>
   );
 };
