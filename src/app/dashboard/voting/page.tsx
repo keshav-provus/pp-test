@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import {
   FiEye,
   FiLogOut,
@@ -13,14 +13,25 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRoom } from "@/context/RoomContext";
 
-export default function PokerSession() {
+function VotingSessionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const sessionId = searchParams.get("sessionId");
   const role = searchParams.get("role");
 
-  const { participants, votes, revealed, sessionEnded, joinRoom, castVote, revealVotes, resetVotes, endSession, leaveSession } = useRoom();
+  const {
+    participants,
+    votes,
+    revealed,
+    sessionEnded,
+    joinRoom,
+    castVote,
+    revealVotes,
+    resetVotes,
+    endSession,
+    leaveSession
+  } = useRoom();
 
   const [myVote, setMyVote] = useState<number | null>(null);
   const participantNameRef = useRef<string>("");
@@ -33,7 +44,7 @@ export default function PokerSession() {
 
     const name = searchParams.get("name");
     if (!name) return;
-    
+
     participantNameRef.current = decodeURIComponent(name);
     joinRoom(sessionId, participantNameRef.current, isHost);
   }, [sessionId, role, isHost, searchParams, joinRoom]);
@@ -71,11 +82,10 @@ export default function PokerSession() {
         <div className="flex items-center gap-6">
           {/* ROLE BADGE */}
           <div
-            className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-              isHost
+            className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${isHost
                 ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
                 : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-            }`}
+              }`}
           >
             {isHost ? "Host" : "Participant"}
           </div>
@@ -136,11 +146,10 @@ export default function PokerSession() {
                     </div>
 
                     <div
-                      className={`w-16 h-22 rounded-xl flex items-center justify-center text-3xl border ${
-                        hasVoted
+                      className={`w-16 h-22 rounded-xl flex items-center justify-center text-3xl border ${hasVoted
                           ? "border-indigo-400/50 bg-indigo-500/10"
                           : "border-white/5 bg-white/5"
-                      }`}
+                        }`}
                     >
                       {revealed ? (
                         <span className="font-black text-indigo-300">
@@ -223,11 +232,10 @@ export default function PokerSession() {
                       setMyVote(v);
                       await castVote(participantNameRef.current, v);
                     }}
-                    className={`w-16 h-24 rounded-xl font-black text-slate-900 bg-white ${
-                      myVote === v
+                    className={`w-16 h-24 rounded-xl font-black text-slate-900 bg-white ${myVote === v
                         ? "ring-[6px] ring-indigo-500/40 -translate-y-4 scale-110"
                         : ""
-                    }`}
+                      }`}
                   >
                     {v}
                   </button>
@@ -238,7 +246,6 @@ export default function PokerSession() {
 
           {/* RIGHT SIDE - PARTICIPANTS LIST & STATS */}
           <div className="space-y-6">
-            {/* Participants Card */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-fit">
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6">
                 Participants ({participants.length})
@@ -256,9 +263,8 @@ export default function PokerSession() {
                     >
                       <div className="flex items-center gap-2">
                         <div
-                          className={`w-2 h-2 rounded-full ${
-                            hasVoted ? "bg-emerald-400 animate-pulse" : "bg-slate-600"
-                          }`}
+                          className={`w-2 h-2 rounded-full ${hasVoted ? "bg-emerald-400 animate-pulse" : "bg-slate-600"
+                            }`}
                         ></div>
                         <span className="text-sm">{player.name}</span>
                       </div>
@@ -284,13 +290,12 @@ export default function PokerSession() {
               </div>
             </div>
 
-            {/* Statistics Card */}
             {revealed && (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-fit">
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">
                   Summary
                 </h3>
-                
+
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-400">Average:</span>
@@ -309,9 +314,20 @@ export default function PokerSession() {
               </div>
             )}
           </div>
-
         </div>
       </main>
     </div>
+  );
+}
+
+export default function PokerSession() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-400">
+        Loading session details...
+      </div>
+    }>
+      <VotingSessionContent />
+    </Suspense>
   );
 }
