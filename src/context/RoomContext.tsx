@@ -103,7 +103,8 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       tick();
       timerIntervalRef.current = setInterval(tick, 250);
     } else {
-      setTimerRemaining(timer.duration);
+      // Instead of calling setState synchronously, use a microtask to avoid cascading renders
+      Promise.resolve().then(() => setTimerRemaining(timer.duration));
     }
 
     return () => {
