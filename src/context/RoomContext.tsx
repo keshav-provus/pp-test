@@ -160,7 +160,8 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .on("broadcast", { event: "votes_updated" }, (payload) => {
-        setVotes(payload.payload as Record<string, number | null>);
+        const { name, vote } = payload.payload as { name: string; vote: number | null };
+        setVotes((prev) => ({ ...prev, [name]: vote }));
       })
       .on("broadcast", { event: "votes_revealed" }, () => {
         setRevealed(true);
@@ -233,12 +234,10 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     const ch = channelRef.current;
     if (!ch || !sessionRef.current) return;
 
-    setVotes((prev) => {
-      const updated = { ...prev, [participantName]: vote };
-      // Fire-and-forget broadcast with the latest votes
-      ch.send({ type: "broadcast", event: "votes_updated", payload: updated });
-      return updated;
-    });
+    // Update local state
+    setVotes((prev) => ({ ...prev, [participantName]: vote }));
+    // Broadcast only the individual vote — receivers merge it into their state
+    await ch.send({ type: "broadcast", event: "votes_updated", payload: { name: participantName, vote } });
   }, []);
 
   const revealVotes = useCallback(async () => {

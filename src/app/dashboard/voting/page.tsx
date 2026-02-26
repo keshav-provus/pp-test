@@ -2,15 +2,15 @@
 
 import React, { useState, useMemo, useEffect, useRef, Suspense, useCallback } from "react";
 import {
-  Settings, MoreHorizontal, ExternalLink, ChevronDown,
-  RotateCcw, FastForward, Users, Plus, Check, FileText,
+  ExternalLink, ChevronDown,
+  RotateCcw, Users, Plus, Check, FileText,
   LogOut, Loader2, X, Share2, FileEdit, Copy, Link2,
-  Timer, Play, Square, AlertTriangle, Eye, EyeOff,
+  Timer, Play, Square, AlertTriangle, Eye, EyeOff, Crown,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-import { useRoom, type SyncedIssue } from "@/context/RoomContext";
+import { useRoom } from "@/context/RoomContext";
 import {
   type JiraIssue,
   type JiraIssueDetails,
@@ -63,11 +63,11 @@ function TimerBar({
   if (!isHost && duration === 0) return null;
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-2.5 rounded-md border transition-all ${
+    <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all ${
       expired
-        ? "bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800"
+        ? "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800"
         : urgent
-        ? "bg-orange-50 dark:bg-orange-950/20 border-orange-300 dark:border-orange-700"
+        ? "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-700"
         : "bg-[#f8f9fa] dark:bg-[#22272b] border-gray-200 dark:border-[#2c333a]"
     }`}>
       <Timer size={15} className={urgent ? "text-orange-500" : "text-gray-500 dark:text-[#8c9bab]"} />
@@ -139,21 +139,21 @@ function TimerBar({
             <button
               onClick={onStart}
               disabled={duration === 0}
-              className="flex items-center gap-1 text-xs text-white bg-[#0052cc] hover:bg-[#0047b3] disabled:opacity-40 px-2.5 py-1 rounded transition-colors font-medium"
+              className="flex items-center gap-1 text-xs text-white bg-[#0052cc] hover:bg-[#0047b3] disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors font-bold"
             >
               <Play size={11} className="fill-current" /> Start
             </button>
           ) : (
             <button
               onClick={onStop}
-              className="flex items-center gap-1 text-xs text-white bg-orange-500 hover:bg-orange-600 px-2.5 py-1 rounded transition-colors font-medium"
+              className="flex items-center gap-1 text-xs text-white bg-orange-500 hover:bg-orange-600 px-3 py-1.5 rounded-lg transition-colors font-bold"
             >
               <Square size={11} className="fill-current" /> Stop
             </button>
           )}
           <button
             onClick={onReset}
-            className="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-[#2c333a] rounded transition-colors"
+            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-[#dfe1e6] hover:bg-gray-200 dark:hover:bg-[#2c333a] rounded-lg transition-all"
             title="Reset timer"
           >
             <RotateCcw size={13} />
@@ -168,7 +168,7 @@ function TimerBar({
 
 function CopyToast({ show }: { show: boolean }) {
   return (
-    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-[#172b4d] dark:bg-[#b6c2cf] text-white dark:text-[#172b4d] px-4 py-2.5 rounded-lg shadow-xl text-sm font-medium transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"}`}>
+    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-gradient-to-r from-[#172b4d] to-[#1e3a5f] dark:from-[#dfe1e6] dark:to-[#b6c2cf] text-white dark:text-[#172b4d] px-5 py-3 rounded-xl shadow-2xl text-sm font-bold transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"}`}>
       <Check size={15} /> Copied to clipboard
     </div>
   );
@@ -179,7 +179,7 @@ function CopyToast({ show }: { show: boolean }) {
 function PokerSessionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
 
   const sessionId = searchParams.get("sessionId") ?? "";
   const role = searchParams.get("role");
@@ -197,7 +197,7 @@ function PokerSessionContent() {
 
   const [isMounted, setIsMounted] = useState(false);
   const [issues, setIssues] = useState<JiraIssue[]>([]);
-  const [myVote, setMyVote] = useState<number | null>(null);
+  const [myVote, setMyVote] = useState<number | string | null>(null);
   const [finalEstimate, setFinalEstimate] = useState("");
   const [estimates, setEstimates] = useState<Record<string, string>>({});
   const [activeIssueDetails, setActiveIssueDetails] = useState<JiraIssueDetails | null>(null);
@@ -234,10 +234,10 @@ function PokerSessionContent() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (isMounted && sessionId && role) {
+    if (isMounted && sessionId && role && authStatus !== "loading") {
       joinRoom(sessionId, participantName, isHost);
     }
-  }, [isMounted, sessionId, role]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMounted, sessionId, role, authStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When host has both joined the channel AND has issues loaded, broadcast issue 0
   // so any participants already in the room receive the initial active issue
@@ -272,6 +272,14 @@ function PokerSessionContent() {
       setFinalEstimate("");
     }
   }, [currentIssueIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Reset local vote when host triggers revote (votes_reset) ────────────
+  useEffect(() => {
+    if (!revealed && Object.keys(votes).length === 0) {
+      setMyVote(null);
+      autoRevealedRef.current = false;
+    }
+  }, [revealed, votes]);
 
   // ── Auto-reveal when timer hits 0 ────────────────────────────────────────
   useEffect(() => {
@@ -329,7 +337,19 @@ function PokerSessionContent() {
     return parseFloat((active.reduce((a, b) => a + b, 0) / active.length).toFixed(1)).toString();
   }, [votes]);
 
-  const votedCount = Object.values(votes).filter(v => v !== null).length;
+  const currentMin = useMemo(() => {
+    const active = Object.values(votes).filter((v): v is number => v !== null);
+    if (!active.length) return "";
+    return Math.min(...active).toString();
+  }, [votes]);
+
+  const currentMax = useMemo(() => {
+    const active = Object.values(votes).filter((v): v is number => v !== null);
+    if (!active.length) return "";
+    return Math.max(...active).toString();
+  }, [votes]);
+
+  const votedCount = participants.filter(p => votes[p.name] !== undefined && votes[p.name] !== null).length;
   const totalParticipants = participants.length;
   // isLastIssue only meaningful for host (they own the issues array)
   const isLastIssue = isHost && issues.length > 0 && currentIssueIndex === issues.length - 1;
@@ -451,6 +471,45 @@ function PokerSessionContent() {
   const handleEndOrLeave = async () => {
     if (isHost) {
       if (!confirm("End this session for everyone?")) return;
+
+      // ── Persist session history to DB ─────────────────────────────────
+      try {
+        const config = (() => {
+          try {
+            const raw = sessionStorage.getItem("session_config");
+            return raw ? JSON.parse(raw) : {};
+          } catch { return {}; }
+        })();
+
+        const issuePayload = issues.map((issue) => ({
+          key: issue.key,
+          summary: issue.summary,
+          source: issue.id.startsWith("custom-") ? "custom" : "jira",
+          estimate: estimates[issue.id] || null,
+          votes: votes, // final votes state
+        }));
+
+        await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionCode: sessionId,
+            name: config.sessionName || "Untitled Session",
+            hostName: participantName,
+            hostEmail: session?.user?.email || null,
+            seriesKey: config.seriesKey || "fibonacci",
+            issues: issuePayload,
+            participants: participants.map((p) => ({
+              name: p.name,
+              isHost: p.isHost,
+            })),
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to save session history:", err);
+        // Non-blocking — still end the session even if save fails
+      }
+
       await endSession();
     } else {
       await leaveSession(participantName);
@@ -467,11 +526,44 @@ function PokerSessionContent() {
     const initials = name ? name.substring(0, 2).toUpperCase() : "?";
     const sz = size === "md" ? "w-8 h-8 text-xs" : "w-6 h-6 text-[10px]";
     return (
-      <div className={`${sz} rounded-full bg-[#0052cc] dark:bg-[#4c9aff] text-white flex items-center justify-center font-semibold shadow-sm border-2 border-white dark:border-[#1d2125] shrink-0`}>
+      <div className={`${sz} rounded-lg bg-gradient-to-br from-[#0052cc] to-[#6554c0] dark:from-[#4c9aff] dark:to-[#9f8fef] text-white flex items-center justify-center font-bold shadow-sm border-2 border-white dark:border-[#1d2125] shrink-0`}>
         {initials}
       </div>
     );
   };
+
+  // Read card series from session config (set by create page) — must be before early return
+  const cardValues: (number | string)[] = useMemo(() => {
+    if (typeof window === "undefined") return [0, 1, 2, 3, 5, 8, 13, 21, 34];
+    try {
+      const raw = sessionStorage.getItem("session_config");
+      if (raw) {
+        const config = JSON.parse(raw);
+        if (Array.isArray(config.seriesValues) && config.seriesValues.length > 0) {
+          return config.seriesValues;
+        }
+      }
+    } catch {}
+    return [0, 1, 2, 3, 5, 8, 13, 21, 34]; // default Fibonacci
+  }, []);
+
+  const sessionDisplayName = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const raw = sessionStorage.getItem("session_config");
+      if (raw) return JSON.parse(raw).sessionName || "";
+    } catch {}
+    return "";
+  }, []);
+
+  const seriesLabel = useMemo(() => {
+    if (typeof window === "undefined") return "fibonacci";
+    try {
+      const raw = sessionStorage.getItem("session_config");
+      if (raw) return JSON.parse(raw).seriesKey || "fibonacci";
+    } catch {}
+    return "fibonacci";
+  }, []);
 
   if (!isMounted) return (
     <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] flex items-center justify-center text-gray-500">
@@ -479,10 +571,8 @@ function PokerSessionContent() {
     </div>
   );
 
-  const cardValues = [0, 1, 2, 3, 5, 8, 13, 21, 34];
-
   return (
-    <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] font-sans text-[#172b4d] dark:text-[#b6c2cf] flex justify-center py-6 px-4 transition-colors">
+    <div className="min-h-screen page-bg font-sans text-[#172b4d] dark:text-[#b6c2cf] flex justify-center py-6 px-4 transition-colors">
       <CopyToast show={showCopyToast} />
 
       {/* ── COMPLETION MODAL ─────────────────────────────────────────────── */}
@@ -561,20 +651,25 @@ function PokerSessionContent() {
       )}
 
       {/* ── MAIN CARD ────────────────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-[#1d2125] w-full max-w-[1400px] rounded-md shadow-sm border border-gray-200 dark:border-[#2c333a] flex flex-col min-h-[90vh]">
+      <div className="relative bg-white dark:bg-[#1d2125] w-full max-w-[1400px] rounded-2xl shadow-xl shadow-black/[0.04] dark:shadow-black/20 border border-gray-200 dark:border-[#2c333a] flex flex-col min-h-[90vh] overflow-hidden">
+        {/* Top accent */}
+        <div className="absolute top-0 inset-x-0 h-[2px] brand-gradient" />
 
         {/* TOP HEADER */}
         <header className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-[#2c333a] gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-sm min-w-0">
-            <div className="w-6 h-6 bg-[#0052cc] rounded flex items-center justify-center text-white shrink-0">
-              <FileText size={14} />
+            <div className="w-7 h-7 bg-gradient-to-br from-[#0052cc] to-[#2684ff] rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm">
+              <FileText size={13} />
             </div>
-            <span className="text-gray-500 dark:text-[#8c9bab] hidden sm:inline">Planning Poker /</span>
+            <span className="text-gray-400 dark:text-[#626f86] hidden sm:inline text-xs font-medium">Poker /</span>
+            {sessionDisplayName && (
+              <span className="text-xs font-semibold text-[#172b4d] dark:text-[#dfe1e6] hidden sm:inline">{sessionDisplayName} /</span>
+            )}
             {/* Tap session ID to copy */}
             <button
               onClick={handleCopySessionId}
               title="Click to copy session ID"
-              className="flex items-center gap-1.5 font-mono font-semibold text-[#172b4d] dark:text-[#b6c2cf] hover:text-[#0052cc] dark:hover:text-[#4c9aff] hover:bg-[#e9f2ff] dark:hover:bg-[#0052cc]/10 px-2 py-0.5 rounded transition-all group"
+              className="flex items-center gap-1.5 font-mono font-bold text-sm text-[#172b4d] dark:text-[#dfe1e6] hover:text-[#0052cc] dark:hover:text-[#4c9aff] hover:bg-[#e9f2ff] dark:hover:bg-[#0052cc]/10 px-2.5 py-1 rounded-lg transition-all group tracking-wide"
             >
               {sessionId}
               {copiedSessionId
@@ -588,7 +683,7 @@ function PokerSessionContent() {
             {/* Copy invite link */}
             <button
               onClick={handleCopyInviteLink}
-              className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-[#9fadbc] hover:text-[#0052cc] dark:hover:text-[#4c9aff] bg-gray-50 dark:bg-[#22272b] hover:bg-[#e9f2ff] dark:hover:bg-[#0052cc]/10 border border-gray-200 dark:border-[#2c333a] px-3 py-1.5 rounded transition-all font-medium"
+              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-[#9fadbc] hover:text-[#0052cc] dark:hover:text-[#4c9aff] bg-gray-50 dark:bg-[#22272b] hover:bg-[#e9f2ff] dark:hover:bg-[#0052cc]/10 border border-gray-200 dark:border-[#2c333a] px-3.5 py-1.5 rounded-lg transition-all font-bold text-xs"
             >
               <Link2 size={14} /> <span className="hidden sm:inline">Copy Invite Link</span>
             </button>
@@ -609,10 +704,15 @@ function PokerSessionContent() {
 
             <button
               onClick={handleEndOrLeave}
-              className="flex items-center gap-1.5 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800/50 px-3 py-1.5 rounded transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800/50 px-3.5 py-1.5 rounded-lg transition-colors font-bold"
             >
               <LogOut size={14} /> <span className="hidden sm:inline">{isHost ? "End" : "Leave"}</span>
             </button>
+            {seriesLabel && (
+              <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-gray-100 dark:bg-[#22272b] border border-gray-200 dark:border-[#2c333a] text-gray-500 dark:text-[#626f86] uppercase tracking-wider hidden sm:inline-flex">
+                {seriesLabel.replace(/_/g, " ")}
+              </span>
+            )}
           </div>
         </header>
 
@@ -637,7 +737,7 @@ function PokerSessionContent() {
 
             {/* Active issue banner */}
             {activeIssue ? (
-              <div className="bg-[#e9f2ff] dark:bg-[#0052cc]/10 border border-[#cce0ff] dark:border-[#0052cc]/30 rounded-md px-4 py-3 flex items-center justify-between gap-3 flex-wrap animate-in fade-in duration-300">
+              <div className="bg-gradient-to-r from-[#e9f2ff] to-[#f0f6ff] dark:from-[#0052cc]/10 dark:to-[#0052cc]/5 border border-[#cce0ff] dark:border-[#0052cc]/20 rounded-xl px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap animate-fade-in-up">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="bg-green-500 w-4 h-4 rounded-sm flex items-center justify-center shrink-0">
                     <Check size={10} className="text-white" />
@@ -667,7 +767,7 @@ function PokerSessionContent() {
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50 dark:bg-[#22272b] border border-gray-200 dark:border-[#2c333a] rounded-md px-4 py-5 text-center text-gray-500 dark:text-[#8c9bab] text-sm">
+              <div className="bg-gray-50 dark:bg-[#22272b] border border-gray-200 dark:border-[#2c333a] rounded-xl px-4 py-6 text-center text-gray-400 dark:text-[#626f86] text-sm">
                 {issues.length === 0 ? "No issues loaded for this session." : "Waiting for host to select an issue…"}
               </div>
             )}
@@ -675,9 +775,9 @@ function PokerSessionContent() {
             {/* Issue details grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Description */}
-              <div className="lg:col-span-2 border border-gray-200 dark:border-[#2c333a] rounded-md overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 dark:border-[#2c333a] bg-gray-50 dark:bg-[#22272b]">
-                  <h3 className="font-semibold text-sm text-[#172b4d] dark:text-[#b6c2cf]">Description</h3>
+              <div className="lg:col-span-2 border border-gray-200 dark:border-[#2c333a] rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-[#2c333a] bg-gray-50/80 dark:bg-[#22272b]/50">
+                  <h3 className="font-bold text-xs text-gray-500 dark:text-[#626f86] uppercase tracking-wider">Description</h3>
                   <ChevronDown size={15} className="text-gray-400" />
                 </div>
                 <div className="p-4 text-sm text-gray-700 dark:text-[#9fadbc] min-h-24">
@@ -699,9 +799,9 @@ function PokerSessionContent() {
               </div>
 
               {/* Details sidebar */}
-              <div className="border border-gray-200 dark:border-[#2c333a] rounded-md overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 dark:border-[#2c333a] bg-gray-50 dark:bg-[#22272b]">
-                  <h3 className="font-semibold text-sm text-[#172b4d] dark:text-[#b6c2cf]">Details</h3>
+              <div className="border border-gray-200 dark:border-[#2c333a] rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-[#2c333a] bg-gray-50/80 dark:bg-[#22272b]/50">
+                  <h3 className="font-bold text-xs text-gray-500 dark:text-[#626f86] uppercase tracking-wider">Details</h3>
                   <ChevronDown size={15} className="text-gray-400" />
                 </div>
                 <div className="p-4 text-sm space-y-3">
@@ -747,7 +847,7 @@ function PokerSessionContent() {
             </div>
 
             {/* Voting controls bar */}
-            <div className="flex items-center gap-2 bg-[#f8f9fa] dark:bg-[#22272b] p-3 rounded-md border border-gray-200 dark:border-[#2c333a] shadow-sm flex-wrap">
+            <div className="flex items-center gap-2 bg-gray-50/80 dark:bg-[#22272b]/50 p-3.5 rounded-xl border border-gray-200 dark:border-[#2c333a] shadow-sm flex-wrap">
               {/* Final estimate input (host) */}
               {isHost && (
                 <input
@@ -843,22 +943,28 @@ function PokerSessionContent() {
             <div className="min-h-48 flex items-center justify-center">
               {revealed ? (
                 <div className="flex flex-wrap items-end justify-center gap-5 w-full py-4">
-                  {/* Average banner */}
+                  {/* Stats banner: Avg / Min / Max */}
                   {currentAverage && (
-                    <div className="w-full text-center mb-2">
-                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#172b4d] dark:text-[#b6c2cf] bg-[#e9f2ff] dark:bg-[#0052cc]/10 border border-[#cce0ff] dark:border-[#0052cc]/30 px-4 py-1.5 rounded-full">
+                    <div className="w-full flex items-center justify-center gap-3 mb-3 flex-wrap animate-fade-in-up">
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#172b4d] dark:text-[#dfe1e6] bg-[#e9f2ff] dark:bg-[#0052cc]/10 border border-[#cce0ff] dark:border-[#0052cc]/20 px-4 py-1.5 rounded-full">
                         Average: <span className="text-xl font-bold text-[#0052cc] dark:text-[#4c9aff]">{currentAverage}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#172b4d] dark:text-[#dfe1e6] bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-700/30 px-4 py-1.5 rounded-full">
+                        Min: <span className="text-xl font-bold text-teal-600 dark:text-teal-400">{currentMin}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#172b4d] dark:text-[#dfe1e6] bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 px-4 py-1.5 rounded-full">
+                        Max: <span className="text-xl font-bold text-amber-600 dark:text-amber-400">{currentMax}</span>
                       </span>
                     </div>
                   )}
                   {Object.entries(groupedVotes)
                     .sort(([a], [b]) => Number(a) - Number(b))
-                    .map(([voteValue, players]) => (
-                      <div key={voteValue} className="flex flex-col items-center animate-in zoom-in duration-300">
+                    .map(([voteValue, players], idx) => (
+                      <div key={voteValue} className="flex flex-col items-center animate-bounce-in" style={{ animationDelay: `${idx * 0.08}s` }}>
                         <span className="text-[10px] font-bold text-gray-500 dark:text-[#8c9bab] bg-gray-100 dark:bg-[#22272b] px-2 py-0.5 rounded-sm mb-2 uppercase border border-gray-200 dark:border-[#2c333a]">
                           {players.length}/{totalParticipants} → {voteValue}
                         </span>
-                        <div className="w-24 h-32 bg-white dark:bg-[#1d2125] border-2 border-[#0052cc] dark:border-[#4c9aff] rounded-xl shadow-md flex flex-col items-center justify-between p-3">
+                        <div className="w-[96px] h-[128px] bg-white dark:bg-[#1d2125] border-2 border-[#0052cc] dark:border-[#4c9aff] rounded-2xl shadow-lg shadow-[#0052cc]/10 flex flex-col items-center justify-between p-3">
                           <div className="flex justify-center -space-x-1.5 w-full">
                             {players.slice(0, 4).map((p, i) => (
                               <div key={i} className="ring-2 ring-white dark:ring-[#1d2125] rounded-full" title={p.name}>
@@ -876,11 +982,11 @@ function PokerSessionContent() {
                   {cardValues.map(v => (
                     <button
                       key={v}
-                      onClick={() => { setMyVote(v); castVote(participantName, v); }}
-                      className={`w-14 h-20 rounded-xl font-bold text-xl flex items-center justify-center transition-all duration-200 select-none ${
+                      onClick={() => { setMyVote(v); castVote(participantName, v as number | null); }}
+                      className={`w-[60px] h-[84px] rounded-xl font-bold text-xl flex items-center justify-center transition-all duration-200 select-none ${
                         myVote === v
-                          ? "border-2 border-[#0052cc] dark:border-[#4c9aff] bg-[#deebff] dark:bg-[#4c9aff]/20 text-[#0052cc] dark:text-[#4c9aff] -translate-y-3 shadow-lg shadow-[#0052cc]/20"
-                          : "border border-gray-200 dark:border-[#2c333a] bg-white dark:bg-[#1d2125] text-[#172b4d] dark:text-[#b6c2cf] hover:border-[#0052cc]/50 dark:hover:border-[#4c9aff]/50 hover:bg-[#f0f6ff] dark:hover:bg-[#0052cc]/5 hover:-translate-y-1 shadow-sm"
+                          ? "border-2 border-[#0052cc] dark:border-[#4c9aff] bg-gradient-to-b from-[#deebff] to-[#e9f2ff] dark:from-[#4c9aff]/20 dark:to-[#4c9aff]/10 text-[#0052cc] dark:text-[#4c9aff] -translate-y-3 shadow-lg shadow-[#0052cc]/20 scale-105"
+                          : "border border-gray-200 dark:border-[#2c333a] bg-white dark:bg-[#1d2125] text-[#172b4d] dark:text-[#dfe1e6] hover:border-[#0052cc]/40 dark:hover:border-[#4c9aff]/40 hover:bg-[#f8faff] dark:hover:bg-[#0052cc]/5 hover:-translate-y-1.5 shadow-sm hover:shadow-md"
                       }`}
                     >
                       {v}
@@ -891,11 +997,11 @@ function PokerSessionContent() {
             </div>
 
             {/* Backlog table */}
-            <div className="border-t border-gray-200 dark:border-[#2c333a] pt-5">
+            <div className="border-t border-gray-100 dark:border-[#2c333a] pt-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-base font-bold text-[#172b4d] dark:text-[#b6c2cf]">Game Backlog</h2>
-                  <span className="bg-[#deebff] dark:bg-[#0052cc]/20 text-[#0052cc] dark:text-[#4c9aff] text-[10px] font-bold px-2 py-0.5 rounded uppercase border border-[#cce0ff] dark:border-[#0052cc]/30">
+                  <h2 className="text-sm font-bold text-[#172b4d] dark:text-[#dfe1e6] uppercase tracking-wide">Backlog</h2>
+                  <span className="bg-[#deebff] dark:bg-[#0052cc]/20 text-[#0052cc] dark:text-[#4c9aff] text-[10px] font-bold px-2 py-0.5 rounded-md uppercase border border-[#cce0ff] dark:border-[#0052cc]/20">
                     {estimatedIssuesCount}/{issues.length} done
                   </span>
                   <span className="text-[#006644] dark:text-[#57d9a3] text-[10px] font-bold uppercase bg-[#e3fcef] dark:bg-[#006644]/20 px-2 py-0.5 rounded border border-[#006644]/20 dark:border-[#57d9a3]/20">
@@ -912,9 +1018,9 @@ function PokerSessionContent() {
                 )}
               </div>
 
-              <div className="border border-gray-200 dark:border-[#2c333a] rounded-md bg-white dark:bg-[#1d2125] overflow-hidden shadow-sm">
+              <div className="border border-gray-200 dark:border-[#2c333a] rounded-xl bg-white dark:bg-[#1d2125] overflow-hidden shadow-sm">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#f4f5f7] dark:bg-[#22272b] border-b border-gray-200 dark:border-[#2c333a] text-gray-500 dark:text-[#9fadbc] text-xs">
+                  <thead className="bg-gray-50/80 dark:bg-[#22272b]/50 border-b border-gray-100 dark:border-[#2c333a] text-gray-400 dark:text-[#626f86] text-[10px] uppercase tracking-wider">
                     <tr>
                       <th className="px-4 py-2.5 font-semibold w-14">Est.</th>
                       <th className="px-3 py-2.5 font-semibold w-20">Key</th>
@@ -968,25 +1074,32 @@ function PokerSessionContent() {
           </div>
 
           {/* RIGHT SIDEBAR — participants */}
-          <div className="w-14 border-l border-gray-200 dark:border-[#2c333a] bg-[#fafbfc] dark:bg-[#111214] flex flex-col items-center py-4 gap-2 shrink-0">
-            <div className="flex items-center gap-1 text-gray-500 dark:text-[#8c9bab] mb-2" title="Participants">
-              <Users size={16} />
+          <div className="w-16 border-l border-gray-100 dark:border-[#2c333a] bg-gray-50/50 dark:bg-[#111214]/50 flex flex-col items-center py-4 gap-2.5 shrink-0">
+            <div className="flex items-center gap-1 text-gray-400 dark:text-[#626f86] mb-2" title="Participants">
+              <Users size={14} />
               <span className="text-xs font-bold">{participants.length}</span>
             </div>
             {participants.map((player, i) => {
               const hasVoted = votes[player.name] !== undefined && votes[player.name] !== null;
               return (
-                <div key={i} className="relative group" title={`${player.name}${hasVoted ? " (voted)" : " (waiting)"}`}>
+                <div key={i} className="relative group" title={`${player.name}${player.isHost ? " (Host)" : ""}${hasVoted ? " — voted" : " — waiting"}`}>
                   {renderAvatar(player.name, "md")}
+                  {/* Vote status indicator */}
                   <div className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#111214] flex items-center justify-center ${hasVoted ? "bg-[#36b37e] dark:bg-[#57d9a3]" : "bg-gray-300 dark:bg-[#8c9bab]"}`}>
                     {hasVoted
                       ? <Check size={7} className="text-white dark:text-[#111214]" />
                       : <span className="block w-1 h-1 bg-white dark:bg-[#111214] rounded-full" />
                     }
                   </div>
+                  {/* Host crown badge */}
+                  {player.isHost && (
+                    <div className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 dark:bg-amber-500 border-2 border-white dark:border-[#111214] flex items-center justify-center">
+                      <Crown size={7} className="text-white" />
+                    </div>
+                  )}
                   {/* Name tooltip on hover */}
                   <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-[#172b4d] dark:bg-[#b6c2cf] text-white dark:text-[#172b4d] text-xs font-medium px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                    {player.name}
+                    {player.name}{player.isHost ? " ★" : ""}
                   </div>
                 </div>
               );
