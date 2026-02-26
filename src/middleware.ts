@@ -10,7 +10,6 @@ export async function middleware(req: NextRequest) {
     req, 
     secret: process.env.NEXTAUTH_SECRET 
   });
-  console.log("Token in Middleware:", token)
   
   const isAuthenticated = !!token;
 
