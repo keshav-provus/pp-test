@@ -1,92 +1,90 @@
 "use client";
 
-import { Plus, Users, History, ChevronRight } from "lucide-react";
-import { Navbar } from "@/components/dashboard/navbar";
-import { GlassPanel } from "@/components/dashboard/glass-panel";
+import { Plus, Users, Activity } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
+import { Navbar } from "@/components/dashboard/navbar";
+import { RecentSessions } from "@/components/dashboard/recent-sessions";
 
 export default function DashboardPage() {
-  const firstName = "Arya";
-  const email = "arya@provus.ai";
+  const router = useRouter();
+  const { data: session } = useSession();
 
-  const router = useRouter()
-  const handleJoinRoom = () => {
-    router.push("/dashboard/join")
-    console.log("Join room clicked");
-  }
-  
-  const handleCreateSession = () => {
-    router.push('/dashboard/create'); 
-    console.log("Create Room Clicked");
-  };
-  const handleHistory = () => console.log("History clicked");
-  const handleLogout = () => console.log("Logout clicked");
+  const firstName = session?.user?.name?.split(" ")[0] || "Guest";
 
   return (
-    <div className="min-h-screen bg-[#060808] text-slate-100 font-sans relative overflow-x-hidden selection:bg-lime-500/30">
-      <div className="fixed top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-lime-500/10 blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] text-[#172b4d] dark:text-[#b6c2cf] font-sans transition-colors">
+      <Navbar 
+        firstName={firstName} 
+        email={session?.user?.email || ""} 
+        onLogout={() => {}} 
+      />
 
-      <Navbar firstName={firstName} email={email} onLogout={handleLogout} />
-
-      <main className="relative z-10 max-w-[1200px] mx-auto px-6 py-12">
-        <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">
-            Ready to estimate, <span className="text-lime-400">{firstName}?</span>
+      <main className="max-w-4xl mx-auto px-6 py-12">
+        {/* Clean Header */}
+        <header className="mb-10">
+          <h1 className="text-2xl font-semibold mb-2 text-[#172b4d] dark:text-[#b6c2cf]">
+            Welcome back, {firstName}
           </h1>
-          <p className="text-muted-foreground font-light text-lg">
-            Create a new session or jump back into your recent workflow.
+          <p className="text-sm text-gray-600 dark:text-[#8c9bab]">
+            Create a new estimation round, join your team, or review past sessions.
           </p>
-        </div>
+        </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <GlassPanel 
-            onClick={handleCreateSession}
-            className="md:col-span-2 group hover:border-lime-500/30 hover:shadow-[0_0_40px_rgba(163,230,53,0.1)] cursor-pointer"
+        {/* Action Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-12">
+          {/* Create Card */}
+          <button 
+            onClick={() => router.push("/dashboard/create")}
+            className="group flex items-start gap-4 p-5 bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] hover:border-[#0052cc] dark:hover:border-[#4c9aff] rounded-md shadow-sm hover:shadow-md transition-all text-left"
           >
-            <div className="p-8 md:p-10 flex flex-col justify-between h-full min-h-[280px]">
-              <div className="w-14 h-14 rounded-xl bg-lime-400 text-black flex items-center justify-center shadow-[0_0_20px_rgba(163,230,53,0.4)] group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300">
-                <Plus className="h-7 w-7" />
-              </div>
-              <div className="mt-auto pt-8">
-                <h2 className="text-3xl font-bold tracking-tight mb-2">Create Session</h2>
-                <div className="flex items-center justify-between">
-                  <p className="text-muted-foreground text-sm">Start a new poker room for your sprint.</p>
-                  <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-lime-400 group-hover:text-black group-hover:border-lime-400 transition-all">
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </div>
+            <div className="w-10 h-10 rounded-md bg-[#e9f2ff] dark:bg-[#0052cc]/20 text-[#0052cc] dark:text-[#4c9aff] flex items-center justify-center shrink-0">
+              <Plus size={20} />
             </div>
-          </GlassPanel>
+            <div>
+              <h2 className="text-base font-semibold mb-1 text-[#172b4d] dark:text-[#b6c2cf] group-hover:text-[#0052cc] dark:group-hover:text-[#4c9aff] transition-colors">
+                Create Session
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-[#8c9bab] leading-relaxed">
+                Start a new estimation round with custom stories or Jira integration.
+              </p>
+            </div>
+          </button>
 
-          <div className="flex flex-col gap-6">
-            <GlassPanel onClick={handleJoinRoom} title="Join" className="flex-1 group hover:border-blue-500/30 hover:bg-white/[0.04] cursor-pointer">
-              <div className="p-6 flex flex-col justify-between h-full">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-4">
-                  <Users className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-1">Join Room</h3>
-                  <p className="text-xs text-muted-foreground">Enter a code to jump in</p>
-                </div>
-              </div>
-            </GlassPanel>
-
-            <GlassPanel onClick={handleHistory} title="Archive" className="flex-1 group hover:border-pink-500/30 hover:bg-white/[0.04] cursor-pointer">
-              <div className="p-6 flex flex-col justify-between h-full">
-                <div className="w-10 h-10 rounded-lg bg-pink-500/10 border border-pink-500/20 text-pink-400 flex items-center justify-center mb-4">
-                  <History className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-1">History</h3>
-                  <p className="text-xs text-muted-foreground">Review past estimations</p>
-                </div>
-              </div>
-            </GlassPanel>
-          </div>
+          {/* Join Card */}
+          <button 
+            onClick={() => router.push("/dashboard/join")}
+            className="group flex items-start gap-4 p-5 bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] hover:border-[#6554c0] dark:hover:border-[#9f8fef] rounded-md shadow-sm hover:shadow-md transition-all text-left"
+          >
+            <div className="w-10 h-10 rounded-md bg-[#eae6ff] dark:bg-[#6554c0]/20 text-[#6554c0] dark:text-[#9f8fef] flex items-center justify-center shrink-0">
+              <Users size={20} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold mb-1 text-[#172b4d] dark:text-[#b6c2cf] group-hover:text-[#6554c0] dark:group-hover:text-[#9f8fef] transition-colors">
+                Join Session
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-[#8c9bab] leading-relaxed">
+                Enter a secure room code to connect with your team&#39;s active session.
+              </p>
+            </div>
+          </button>
         </div>
+
+        {/* Recent Activity */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-[#2c333a]">
+            <Activity size={18} className="text-gray-500 dark:text-[#8c9bab]" />
+            <h2 className="text-base font-semibold text-[#172b4d] dark:text-[#b6c2cf]">
+              Recent Activity
+            </h2>
+          </div>
+          <div className="bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] rounded-md shadow-sm overflow-hidden">
+             {/* Render your existing RecentSessions component inside this clean wrapper */}
+             <RecentSessions />
+          </div>
+        </section>
+
       </main>
     </div>
   );

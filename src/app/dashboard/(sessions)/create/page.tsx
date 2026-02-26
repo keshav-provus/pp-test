@@ -1,92 +1,198 @@
 "use client";
 
-import { FileEdit, Share2, ArrowLeft } from "lucide-react";
+import { useState } from "react"; // Removed unused useEffect
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Navbar } from "@/components/dashboard/navbar";
-import { ActionCard } from "@/components/dashboard/action-card";
-import { nanoid } from "nanoid";
+import { FileEdit, Share2, ArrowLeft, Plus, Trash2, Play } from "lucide-react"; // Removed unused User
+import { useSession } from "next-auth/react";
 
+import { Input } from "@/components/ui/input"; // Removed unused Button
+import { Navbar } from "@/components/dashboard/navbar";
+import { JiraMultiSelector } from "@/components/jira/selector";
+import { type JiraIssue } from "@/services/jira";
+
+const generateRoomId = (length = 8) => {
+  const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes).map((byte) => alphabet[byte % alphabet.length]).join("");
+};
+
+type CreationMode = "menu" | "jira" | "custom";
 
 export default function CreateSessionPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const { data: session } = useSession();
+  
+  const [customName, setCustomName] = useState<string | null>(null);
+  const [mode, setMode] = useState<CreationMode>("menu");
+  
+  const [customIssues, setCustomIssues] = useState([{ id: 1, summary: "" }]);
+  const [nextIdCounter, setNextIdCounter] = useState(2);
 
-  const handleCreateSession = () => {
-    if (!username.trim()) return;
-    const sessionId = nanoid(8).toUpperCase();
-    router.push(`/dashboard/voting?sessionId=${sessionId}&role=host&name=${encodeURIComponent(username.trim())}`);
+  const activeUsername = customName !== null ? customName : (session?.user?.name || "");
+
+  const finalizeSession = (issuesToSave: JiraIssue[]) => {
+    if (!activeUsername.trim()) return;
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("pending_jira_issues", JSON.stringify(issuesToSave));
+    }
+    const sessionId = generateRoomId(8);
+    router.push(`/dashboard/voting?sessionId=${sessionId}&role=host&name=${encodeURIComponent(activeUsername.trim())}`);
   };
 
-  return (
-    <div className="min-h-screen bg-[#060808] text-slate-100 font-sans relative overflow-x-hidden">
-      {/* Background Glows */}
-      <div className="fixed top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-lime-500/5 blur-[120px] pointer-events-none" />
-      
-      <Navbar firstName="Arya" email="arya@provus.ai" onLogout={() => {}} />
+  const handleCustomFinalize = () => {
+    const validIssues: JiraIssue[] = customIssues
+      .filter((issue) => issue.summary.trim() !== "")
+      .map((issue, index) => ({
+        id: `custom-${issue.id}`,
+        key: `C${String(index + 1).padStart(3, "0")}`,
+        summary: issue.summary.trim(),
+        status: "Custom Story",
+        statusCategory: "To Do",
+      }));
+    finalizeSession(validIssues);
+  };
 
-      <main className="relative z-10 max-w-[1000px] mx-auto px-6 py-20">
-        {/* Back Button */}
-        <Button 
-          variant="ghost" 
-          className="mb-8 text-muted-foreground hover:text-white -ml-4"
-          onClick={() => router.back()}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
-        </Button>
-
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tight mb-3">Create New Session</h1>
-          <p className="text-muted-foreground text-lg font-light">
-            Enter your name and choose how to import your stories for estimation.
-          </p>
+  // --- JIRA SELECTION MODE ---
+  if (mode === "jira") {
+    return (
+      <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] text-[#172b4d] dark:text-[#b6c2cf] transition-colors">
+        <Navbar firstName={session?.user?.name?.split(" ")[0] || "Guest"} email={session?.user?.email || ""} onLogout={() => {}} />
+        <div className="max-w-6xl mx-auto py-8 px-6 space-y-4">
+          <button onClick={() => setMode("menu")} className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#0052cc] dark:hover:text-[#4c9aff] transition-colors">
+            <ArrowLeft size={16} /> Back to options
+          </button>
+          <JiraMultiSelector onFinalSelection={finalizeSession} />
         </div>
+      </div>
+    );
+  }
 
-        {/* Username Input */}
-        <div className="max-w-md mb-12">
-          <div className="space-y-2">
-            <label htmlFor="username" className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-              Your Name
-            </label>
-            <Input
-              id="username"
-              type="text"
-              placeholder="Enter your name"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="h-12 bg-black/40 border-white/10 text-base placeholder:text-white/20 focus-visible:ring-lime-400/50 focus-visible:border-lime-400 transition-all"
-              autoComplete="off"
-            />
+  // --- CUSTOM STORIES MODE ---
+  if (mode === "custom") {
+    return (
+      <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] text-[#172b4d] dark:text-[#b6c2cf] transition-colors">
+        <Navbar firstName={session?.user?.name?.split(" ")[0] || "Guest"} email={session?.user?.email || ""} onLogout={() => {}} />
+
+        <main className="max-w-3xl mx-auto px-6 py-12">
+          <button onClick={() => setMode("menu")} className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#0052cc] dark:hover:text-[#4c9aff] transition-colors mb-6">
+            <ArrowLeft size={16} /> Back to options
+          </button>
+
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-semibold text-[#172b4d] dark:text-[#b6c2cf]">Create Custom Backlog</h1>
+              <p className="text-sm text-gray-500 dark:text-[#8c9bab]">Define the items you want to estimate.</p>
+            </div>
+            <button 
+              onClick={handleCustomFinalize}
+              disabled={customIssues.every(i => i.summary.trim() === "")}
+              className="bg-[#0052cc] hover:bg-[#0047b3] text-white px-4 py-2 rounded text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              Start Session <Play size={14} className="fill-current" />
+            </button>
           </div>
+
+          <div className="bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] rounded-md shadow-sm">
+            <div className="grid grid-cols-[60px_1fr_40px] gap-4 px-6 py-3 border-b border-gray-200 dark:border-[#2c333a] text-xs font-semibold text-gray-500 dark:text-[#9fadbc]">
+              <span>Key</span>
+              <span>Summary</span>
+              <span className="text-center"></span>
+            </div>
+
+            <div className="p-2 space-y-1 max-h-[50vh] overflow-y-auto">
+              {customIssues.map((issue, index) => {
+                const formattedKey = `C${String(index + 1).padStart(3, "0")}`;
+                return (
+                  <div key={issue.id} className="grid grid-cols-[60px_1fr_40px] gap-4 items-center group px-4 py-2 hover:bg-gray-50 dark:hover:bg-[#22272b] rounded-md transition-colors">
+                    <div className="text-xs font-medium text-[#0052cc] dark:text-[#4c9aff]">
+                      {formattedKey}
+                    </div>
+                    <Input
+                      type="text"
+                      placeholder="What needs to be done?"
+                      value={issue.summary}
+                      onChange={(e) => {
+                        const newIssues = [...customIssues];
+                        newIssues[index].summary = e.target.value;
+                        setCustomIssues(newIssues);
+                      }}
+                      className="h-8 bg-transparent border-transparent hover:border-gray-300 dark:hover:border-[#8c9bab]/30 focus-visible:ring-[#0052cc] rounded shadow-none text-sm px-2"
+                    />
+                    <button
+                      onClick={() => setCustomIssues(customIssues.filter(i => i.id !== issue.id))}
+                      className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t border-gray-200 dark:border-[#2c333a]">
+              <button 
+                onClick={() => {
+                  setCustomIssues([...customIssues, { id: nextIdCounter, summary: "" }]);
+                  setNextIdCounter(prev => prev + 1);
+                }}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#172b4d] dark:text-[#9fadbc] dark:hover:text-[#b6c2cf] font-medium transition-colors"
+              >
+                <Plus size={16} /> Add a story
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // --- MAIN MENU MODE ---
+  return (
+    <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] text-[#172b4d] dark:text-[#b6c2cf] transition-colors">
+      <Navbar firstName={session?.user?.name?.split(" ")[0] || "Guest"} email={session?.user?.email || ""} onLogout={() => {}} />
+
+      <main className="max-w-2xl mx-auto px-6 py-12">
+        <button onClick={() => router.push("/dashboard")} className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#0052cc] dark:hover:text-[#4c9aff] transition-colors mb-6">
+          <ArrowLeft size={16} /> Back to Dashboard
+        </button>
+
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold text-[#172b4d] dark:text-[#b6c2cf] mb-2">Create New Session</h1>
+          <p className="text-sm text-gray-600 dark:text-[#8c9bab]">Enter your display name and choose your story source.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
-          
-          <ActionCard 
-  title="Custom stories"
-  description="Create stories one by one. Perfect for quick ad-hoc sessions."
-  icon={FileEdit}
-  colorClassName="bg-lime-400 text-black shadow-[0_0_25px_rgba(163,230,53,0.3)]"
-  onClick={handleCreateSession}
-/>
-
-          <ActionCard 
-            title="Jira Board"
-            description="Sync issues directly from your Jira backlog or active sprints."
-            icon={Share2}
-            colorClassName="bg-blue-500 text-white shadow-[0_0_25px_rgba(59,130,246,0.3)]"
-            onClick={() => console.log("Navigate to Jira OAuth flow")}
+        <div className="bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] rounded-md shadow-sm p-6 mb-8">
+          <label className="text-xs font-semibold text-gray-600 dark:text-[#9fadbc] uppercase mb-2 block">
+            Host Display Name
+          </label>
+          <Input
+            type="text"
+            placeholder="John Doe"
+            value={activeUsername}
+            onChange={(e) => setCustomName(e.target.value)}
+            className="h-10 bg-[#fafbfc] dark:bg-[#22272b] border-gray-300 dark:border-[#2c333a] text-sm focus-visible:ring-[#0052cc] transition-colors"
           />
-
         </div>
 
-        {/* Subtle footer tip */}
-        <p className="mt-12 text-center text-sm text-muted-foreground/50 italic">
-          Pro-tip: You can add more stories manually even after importing from Jira.
-        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button 
+            onClick={() => activeUsername.trim() && setMode("custom")}
+            className="flex flex-col items-start p-6 bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] hover:border-[#0052cc] dark:hover:border-[#4c9aff] rounded-md shadow-sm transition-all text-left"
+          >
+            <FileEdit size={24} className="text-[#0052cc] dark:text-[#4c9aff] mb-3" />
+            <h3 className="font-semibold mb-1">Custom Stories</h3>
+            <p className="text-sm text-gray-500 dark:text-[#8c9bab]">Manually build a list of stories for your estimation round.</p>
+          </button>
+          
+          <button 
+            onClick={() => activeUsername.trim() && setMode("jira")}
+            className="flex flex-col items-start p-6 bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] hover:border-[#0052cc] dark:hover:border-[#4c9aff] rounded-md shadow-sm transition-all text-left"
+          >
+            <Share2 size={24} className="text-[#0052cc] dark:text-[#4c9aff] mb-3" />
+            <h3 className="font-semibold mb-1">Jira Integration</h3>
+            <p className="text-sm text-gray-500 dark:text-[#8c9bab]">Sync active sprints or backlogs directly from your boards.</p>
+          </button>
+        </div>
       </main>
     </div>
   );

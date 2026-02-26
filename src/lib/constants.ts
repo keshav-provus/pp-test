@@ -1,0 +1,1 @@
+export const ALLOWED_DOMAINS = ["provusinc.com", "provus.ai"] as const;

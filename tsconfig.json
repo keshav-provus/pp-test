@@ -30,11 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"],
-
-  "scripts": {
-    "dev": "node server.ts",
-    "build": "next build",
-    "start": "NODE_ENV=production node server.ts"
-  }
+  "exclude": ["node_modules"]
 }

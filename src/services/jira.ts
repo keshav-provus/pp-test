@@ -25,9 +25,14 @@ export interface JiraIssue {
   source?: string;
 }
 
+// NEW: Extended interface for detailed views
+export interface JiraIssueDetails extends JiraIssue {
+  description: string | null;
+  reporter: string | null;
+}
+
 /**
  * Helper to retrieve and validate configuration.
- * Wrapping this in a function ensures we get the latest process.env values.
  */
 const getJiraConfig = () => {
   const baseUrl = (process.env.JIRA_BASE_URL || "").trim();
@@ -89,9 +94,6 @@ async function fetchPaginatedData<T>(
   return allData;
 }
 
-/**
- * Fetch all boards accessible to the user
- */
 export async function getBoardData(): Promise<JiraBoard[]> {
   const data = await fetchPaginatedData<JiraBoard>(
     "/rest/agile/1.0/board",
@@ -104,9 +106,6 @@ export async function getBoardData(): Promise<JiraBoard[]> {
   }));
 }
 
-/**
- * Fetch active and future sprints for a specific Scrum board
- */
 export async function getSprints(boardId: string): Promise<JiraSprint[]> {
   const data = await fetchPaginatedData<JiraSprint>(
     `/rest/agile/1.0/board/${boardId}/sprint`,
@@ -121,9 +120,6 @@ export async function getSprints(boardId: string): Promise<JiraSprint[]> {
     }));
 }
 
-/**
- * Standard mapping for Jira Issues to our local UI format
- */
 interface JiraApiIssueFields {
   summary: string;
   status: {
@@ -148,9 +144,6 @@ const mapIssue = (issue: JiraApiIssue): JiraIssue => ({
   statusCategory: issue.fields.status.statusCategory.name,
 });
 
-/**
- * Fetch issues from a specific Sprint (Scrum flow)
- */
 export async function getIssuesBySprint(
   sprintId: string,
 ): Promise<JiraIssue[]> {
@@ -167,9 +160,6 @@ export async function getIssuesByBoard(boardId: string): Promise<JiraIssue[]> {
   return data.map(mapIssue);
 }
 
-/**
- * Retrieves the backlog for a board
- */
 export async function getBoardBacklog(boardId: string): Promise<JiraIssue[]> {
   const jql = encodeURIComponent("statusCategory != Done AND sprint is EMPTY");
   const endpoint = `/rest/agile/1.0/board/${boardId}/issue?jql=${jql}`;
@@ -180,9 +170,6 @@ export async function getBoardBacklog(boardId: string): Promise<JiraIssue[]> {
   }));
 }
 
-/**
- * Performs an issue status transition with robust error checking
- */
 export async function updateIssueStatus(
   issueKey: string,
   targetStatus: string,
@@ -193,7 +180,7 @@ export async function updateIssueStatus(
   const res = await fetch(transitionsUrl, {
     method: "GET",
     headers: config.headers as HeadersInit,
-    cache: "no-store", // Critical: Prevent Vercel from caching old transition lists
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -238,9 +225,6 @@ export async function updateIssueStatus(
   return { success: true };
 }
 
-/**
- * Moves an issue to the 'Done' status category
- */
 export async function transitionToDone(issueKey: string) {
   const config = getJiraConfig();
   const transitionsUrl = `${config.baseUrl}/rest/api/2/issue/${issueKey}/transitions`;
@@ -283,9 +267,6 @@ export async function transitionToDone(issueKey: string) {
   return { success: true };
 }
 
-/**
- * Creates a new Jira issue
- */
 export async function createJiraIssue(
   summary: string,
   boardId: string,
@@ -340,9 +321,6 @@ export async function createJiraIssue(
   return await response.json();
 }
 
-/**
- * Moves an issue to the board's backlog
- */
 export async function moveIssueToBacklog(issueKey: string) {
   const config = getJiraConfig();
   const response = await fetch(
@@ -358,9 +336,6 @@ export async function moveIssueToBacklog(issueKey: string) {
   throw new Error("Failed to move issue to backlog");
 }
 
-/**
- * Moves an issue to a specific sprint
- */
 export async function moveIssueToSprint(issueKey: string, sprintId: string) {
   const config = getJiraConfig();
   const response = await fetch(
@@ -389,7 +364,7 @@ export async function updateStoryPoints(issueKey: string, points: number) {
           customfield_10026: points,
         },
       }),
-    },
+    }
   );
 
   if (!response.ok) {
@@ -400,12 +375,13 @@ export async function updateStoryPoints(issueKey: string, points: number) {
   return { success: true };
 }
 
-export async function getIssueDetails(issueKey: string): Promise<JiraIssue> {
+// FIX: Updated to fetch full details including description and reporter
+export async function getIssueDetails(issueKey: string): Promise<JiraIssueDetails> {
   const config = getJiraConfig();
   const response = await fetch(`${config.baseUrl}/rest/api/2/issue/${issueKey}`, {
     method: "GET",
     headers: config.headers as HeadersInit,
-    next: { revalidate: 0 },
+    cache: "no-store", // Prevents caching stale data
   });
 
   if (!response.ok) {
@@ -413,11 +389,22 @@ export async function getIssueDetails(issueKey: string): Promise<JiraIssue> {
   }
 
   const issue = await response.json();
+  
+  // Jira descriptions can sometimes be Atlassian Document Format objects
+  let descriptionText = null;
+  if (typeof issue.fields.description === "string") {
+    descriptionText = issue.fields.description;
+  } else if (issue.fields.description && typeof issue.fields.description === "object") {
+    descriptionText = "Rich text formatting (ADF) detected. Please view in Jira.";
+  }
+
   return {
     id: issue.id,
     key: issue.key,
     summary: issue.fields.summary,
     status: issue.fields.status.name,
-    statusCategory: issue.fields.status.statusCategory.name,
+    statusCategory: issue.fields.status.statusCategory?.name || "To Do",
+    description: descriptionText,
+    reporter: issue.fields.reporter?.displayName || null,
   };
 }

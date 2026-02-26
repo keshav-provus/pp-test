@@ -1,105 +1,96 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation"; 
-import { ArrowLeft, KeyRound, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, User, KeyRound, LogIn } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Navbar } from "@/components/dashboard/navbar";
 
 export default function JoinSessionPage() {
-  const [sessionCode, setSessionCode] = useState("");
-  const [username, setUsername] = useState("");
-  const router = useRouter(); 
+  const router = useRouter();
+  const { data: session } = useSession();
+  
+  const [sessionId, setSessionId] = useState("");
+  const [customName, setCustomName] = useState<string | null>(null);
+
+  const activeUsername = customName !== null ? customName : (session?.user?.name || "");
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!sessionCode.trim() || !username.trim()) return;
+    if (!sessionId.trim() || !activeUsername.trim()) return;
 
     router.push(
-      `/dashboard/voting?sessionId=${sessionCode.trim()}&role=participant&name=${encodeURIComponent(username.trim())}`
+      `/dashboard/voting?sessionId=${sessionId.trim().toUpperCase()}&role=participant&name=${encodeURIComponent(
+        activeUsername.trim()
+      )}`
     );
   };
 
   return (
-    <div className="min-h-screen bg-[#060808] text-slate-100 font-sans relative flex flex-col items-center justify-center selection:bg-lime-500/30 px-6">
-      
-      {/* ── Ambient Background Glows ── */}
-      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-lime-500/10 blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] text-[#172b4d] dark:text-[#b6c2cf] font-sans transition-colors flex flex-col">
+      <Navbar 
+        firstName={session?.user?.name?.split(" ")[0] || "Guest"} 
+        email={session?.user?.email || ""} 
+        onLogout={() => {}} 
+      />
 
-      {/* ── Back to Dashboard Button ── */}
-      <div className="absolute top-8 left-8 z-20">
-        <Link href="/dashboard">
-          <Button variant="ghost" className="text-muted-foreground hover:text-white hover:bg-white/5 transition-colors">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </Link>
-      </div>
+      <main className="flex-1 flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md">
+          <button 
+            onClick={() => router.push("/dashboard")}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:text-[#8c9bab] dark:hover:text-[#b6c2cf] mb-6 transition-colors"
+          >
+            <ArrowLeft size={16} /> Back to Dashboard
+          </button>
 
-      {/* ── Join Card ── */}
-      <div className="relative z-10 w-full max-w-md">
-        <div className="relative flex flex-col rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-8 shadow-2xl overflow-hidden">
-          
-          {/* Subtle top highlight */}
-          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
+          <div className="bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#8c9bab]/20 rounded-lg shadow-sm p-8">
+            <h1 className="text-2xl font-semibold mb-2">Join a Session</h1>
+            <p className="text-sm text-gray-600 dark:text-[#8c9bab] mb-8">
+              Enter the room code provided by your session host to begin estimating.
+            </p>
 
-          {/* Icon */}
-          <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-6 shadow-inner">
-            <KeyRound className="w-6 h-6" />
+            <form onSubmit={handleJoin} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 dark:text-[#8c9bab] uppercase flex items-center gap-2">
+                  <KeyRound size={14} /> Room Code
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. A1B2C3D4"
+                  value={sessionId}
+                  onChange={(e) => setSessionId(e.target.value.toUpperCase())}
+                  className="w-full h-10 px-3 bg-[#fafbfc] dark:bg-[#22272b] border border-gray-300 dark:border-[#8c9bab]/30 rounded text-sm focus:outline-none focus:border-[#0052cc] dark:focus:border-[#4c9aff] transition-colors placeholder:text-gray-400"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 dark:text-[#8c9bab] uppercase flex items-center gap-2">
+                  <User size={14} /> Your Display Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="John Doe"
+                  value={activeUsername}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  className="w-full h-10 px-3 bg-[#fafbfc] dark:bg-[#22272b] border border-gray-300 dark:border-[#8c9bab]/30 rounded text-sm focus:outline-none focus:border-[#0052cc] dark:focus:border-[#4c9aff] transition-colors placeholder:text-gray-400"
+                  autoComplete="off"
+                />
+              </div>
+
+              <button 
+                type="submit"
+                disabled={!sessionId.trim() || !activeUsername.trim()}
+                className="w-full h-10 mt-2 bg-[#0052cc] hover:bg-[#0047b3] text-white rounded text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Join Room <LogIn size={16} />
+              </button>
+            </form>
           </div>
-
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Join a Session</h1>
-          <p className="text-muted-foreground text-sm font-light mb-8">
-            Enter your name and the session code to join the room.
-          </p>
-
-          <form onSubmit={handleJoin} className="flex flex-col gap-4">
-            <div className="space-y-2">
-              <label htmlFor="username" className="text-xs font-semibold tracking-widest text-muted-foreground uppercase ml-1">
-                Your Name
-              </label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="e.g. John Doe"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="h-12 bg-black/40 border-white/10 text-base placeholder:text-white/20 focus-visible:ring-lime-400/50 focus-visible:border-lime-400 transition-all"
-                autoComplete="off"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="sessionCode" className="text-xs font-semibold tracking-widest text-muted-foreground uppercase ml-1">
-                Session Code
-              </label>
-              <Input
-                id="sessionCode"
-                type="text"
-                placeholder="e.g. PROVUS-X7B9"
-                value={sessionCode}
-                onChange={(e) => setSessionCode(e.target.value)}
-                className="h-12 bg-black/40 border-white/10 text-lg placeholder:text-white/20 focus-visible:ring-lime-400/50 focus-visible:border-lime-400 transition-all uppercase"
-                autoComplete="off"
-                spellCheck="false"
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              disabled={!sessionCode.trim() || !username.trim()}
-              className="h-12 mt-4 bg-lime-400 hover:bg-lime-500 text-black font-semibold text-base rounded-xl transition-all shadow-[0_0_20px_rgba(163,230,53,0.2)] hover:shadow-[0_0_30px_rgba(163,230,53,0.3)] hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
-            >
-              Join Room
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
-          </form>
-
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -55,8 +55,14 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       const state = newChannel.presenceState();
       const participantList: Participant[] = [];
       
-      Object.entries(state).forEach(([, presences]: [string, any]) => {
-        presences.forEach((presence: any) => {
+      // FIX: Use type assertion to handle Supabase's generic presence state
+      Object.entries(state).forEach(([, presences]) => {
+        const typedPresences = presences as unknown as Array<{ 
+          presence_ref: string; 
+          participant: Participant 
+        }>;
+
+        typedPresences.forEach((presence) => {
           if (presence.participant) {
             participantList.push(presence.participant);
           }
