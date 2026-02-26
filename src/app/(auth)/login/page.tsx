@@ -1,47 +1,79 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { signIn } from "next-auth/react";
+import { Layers, Chrome, UserCheck } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function LoginPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
+  const isDev = process.env.NODE_ENV === "development";
 
-  // Redirect if already logged in
   useEffect(() => {
-    if (session) {
-      router.replace("/dashboard");
-    }
-  }, [session, router]);
+    setIsMounted(true);
+  }, []);
 
-  if (status === "loading") {
-    return <div className="p-10 text-white bg-black min-h-screen">Loading Auth State...</div>;
-  }
+  const handleMockLogin = (name: string, email: string) => {
+    // Uses the CredentialsProvider configured in your route.ts
+    signIn("credentials", {
+      name,
+      email,
+      callbackUrl: "/dashboard",
+    });
+  };
+
+  if (!isMounted) return null;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 font-sans">
-      <div className="p-8 bg-white shadow-xl rounded-2xl border border-slate-200 max-w-sm w-full text-center">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Provus Poker</h1>
-        <p className="text-slate-500 mb-8 text-sm">Phase 2: Authentication Foundation</p>
-        
-        <button
-          onClick={() => signIn("google")}
-          className="flex items-center justify-center gap-3 w-full py-3 px-4 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-all font-medium text-slate-700 shadow-sm"
-        >
-          <img 
-            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-            alt="Google" 
-            className="w-5 h-5"
-          />
-          Sign in with Google
-        </button>
-
-        <div className="mt-6 pt-6 border-t border-slate-100">
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">
-            Functional MVP - Security Layer v0.1
-          </p>
+    <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] flex items-center justify-center p-6 transition-colors">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
+          <div className="inline-flex w-12 h-12 rounded-lg bg-[#0052cc] text-white items-center justify-center mb-4 shadow-lg">
+            <Layers size={28} />
+          </div>
+          <h1 className="text-3xl font-bold text-[#172b4d] dark:text-[#b6c2cf]">Planning Poker</h1>
+          <p className="text-gray-500 dark:text-[#8c9bab] mt-2">Sign in to start estimating with your team</p>
         </div>
+
+        <div className="bg-white dark:bg-[#1d2125] p-8 rounded-xl shadow-sm border border-gray-200 dark:border-[#2c333a]">
+          <button
+            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            className="w-full flex items-center justify-center gap-3 bg-white dark:bg-[#22272b] border border-gray-300 dark:border-[#2c333a] hover:bg-gray-50 dark:hover:bg-[#2c333a] text-[#172b4d] dark:text-[#b6c2cf] font-medium py-3 px-4 rounded-lg transition-all"
+          >
+            <Chrome size={20} className="text-[#4285F4]" />
+            Continue with Google
+          </button>
+
+          {/* DEVELOPMENT BYPASS UI */}
+          {isDev && (
+            <div className="mt-10 pt-6 border-t border-dashed border-gray-200 dark:border-[#2c333a]">
+              <div className="flex items-center gap-2 mb-4 text-[#0052cc] dark:text-[#4c9aff]">
+                <UserCheck size={16} />
+                <span className="text-xs font-bold uppercase tracking-wider">Dev Mode Bypass</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleMockLogin("Keshav (Host)", "keshav@provusinc.com")}
+                  className="flex flex-col items-center justify-center p-3 rounded-lg border border-gray-200 dark:border-[#2c333a] hover:border-[#0052cc] dark:hover:border-[#4c9aff] bg-gray-50 dark:bg-[#111214] transition-all group"
+                >
+                  <span className="text-sm font-semibold">Host User</span>
+                  <span className="text-[10px] text-gray-400 group-hover:text-[#0052cc]">Localhost only</span>
+                </button>
+                <button
+                  onClick={() => handleMockLogin("Guest User", "guest@provusinc.com")}
+                  className="flex flex-col items-center justify-center p-3 rounded-lg border border-gray-200 dark:border-[#2c333a] hover:border-[#0052cc] dark:hover:border-[#4c9aff] bg-gray-50 dark:bg-[#111214] transition-all group"
+                >
+                  <span className="text-sm font-semibold">Guest User</span>
+                  <span className="text-[10px] text-gray-400 group-hover:text-[#0052cc]">Localhost only</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <p className="text-center text-xs text-gray-400 dark:text-[#8c9bab]">
+          Restricted to authorized organizational domains.
+        </p>
       </div>
     </div>
   );
