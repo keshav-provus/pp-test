@@ -5,12 +5,7 @@ import { Layers, Chrome, UserCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function LoginPage() {
-  const [isMounted, setIsMounted] = useState(false);
   const isDev = process.env.NODE_ENV === "development";
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const handleMockLogin = (name: string, email: string) => {
     // Uses the CredentialsProvider configured in your route.ts
@@ -20,8 +15,6 @@ export default function LoginPage() {
       callbackUrl: "/dashboard",
     });
   };
-
-  if (!isMounted) return null;
 
   return (
     <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] flex items-center justify-center p-6 transition-colors">

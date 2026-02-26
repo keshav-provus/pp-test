@@ -12,12 +12,7 @@ interface NavbarProps {
 
 export const Navbar = ({ firstName, email, onLogout }: NavbarProps) => {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Use effect to handle mounting state
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const isClient = typeof window !== "undefined";
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white dark:bg-[#1d2125] border-b border-gray-200 dark:border-[#2c333a] transition-colors">
@@ -45,7 +40,7 @@ export const Navbar = ({ firstName, email, onLogout }: NavbarProps) => {
             title="Toggle Theme"
             suppressHydrationWarning
           >
-            {mounted ? (
+            {isClient ? (
               theme === "dark" ? <Sun size={18} /> : <Moon size={18} />
             ) : (
               /* A placeholder that matches the size but contains no specific SVG to avoid mismatch */
