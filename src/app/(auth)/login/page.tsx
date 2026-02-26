@@ -16,35 +16,26 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen page-bg flex items-center justify-center p-6 transition-colors">
-      {/* Subtle background decoration */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#0052cc]/[0.03] dark:bg-[#4c9aff]/[0.03] rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[#6554c0]/[0.03] dark:bg-[#9f8fef]/[0.03] rounded-full blur-3xl" />
-      </div>
-
-      <div className="w-full max-w-[420px] space-y-6 relative animate-fade-in-up">
+      <div className="w-full max-w-[400px] space-y-6 relative animate-fade-in-up">
         {/* Brand */}
-        <div className="text-center">
-          <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-[#0052cc] to-[#2684ff] text-white items-center justify-center mb-5 shadow-lg shadow-[#0052cc]/25">
-            <Layers size={28} />
+        <div className="text-center flex flex-col items-center">
+          <div className="inline-flex w-12 h-12 rounded-xl bg-[#111] dark:bg-white text-white dark:text-[#111] items-center justify-center mb-5 shadow-sm">
+            <Layers size={24} />
           </div>
-          <h1 className="text-3xl font-bold text-[#172b4d] dark:text-[#dfe1e6] tracking-tight">
+          <h1 className="text-2xl font-semibold text-[#111] dark:text-[#ededed] tracking-tight">
             Planning Poker
           </h1>
-          <p className="text-gray-500 dark:text-[#8c9bab] mt-2 text-[15px]">
+          <p className="text-[#666] dark:text-[#a1a1aa] mt-2 text-sm">
             Sign in to start estimating with your team
           </p>
         </div>
 
         {/* Card */}
-        <div className="relative bg-white dark:bg-[#1d2125] p-8 rounded-2xl shadow-xl shadow-black/[0.04] dark:shadow-black/20 border border-gray-200/80 dark:border-[#2c333a]">
-          {/* Top accent */}
-          <div className="absolute top-0 inset-x-0 h-[3px] rounded-t-2xl brand-gradient" />
-
+        <div className="relative bg-white dark:bg-[#0a0a0a] p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-[#333]">
           {/* Google Sign-in */}
           <button
             onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-            className="w-full flex items-center justify-center gap-3 bg-white dark:bg-[#22272b] border border-gray-200 dark:border-[#2c333a] hover:border-gray-300 dark:hover:border-[#4c9aff]/40 hover:shadow-md text-[#172b4d] dark:text-[#dfe1e6] font-semibold py-3.5 px-4 rounded-xl transition-all duration-200 card-hover"
+            className="w-full flex items-center justify-center gap-3 bg-white dark:bg-[#111] border border-gray-200 dark:border-[#333] hover:bg-gray-50 dark:hover:bg-[#1a1a1a] active:scale-[0.98] text-[#111] dark:text-[#ededed] font-medium text-sm py-2.5 px-4 rounded-lg transition-all duration-200"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
               <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -56,40 +47,40 @@ export default function LoginPage() {
           </button>
 
           {/* Security note */}
-          <div className="flex items-center justify-center gap-1.5 mt-5 text-[11px] text-gray-400 dark:text-[#626f86]">
-            <Shield size={11} />
+          <div className="flex items-center justify-center gap-1.5 mt-5 text-[11px] text-[#888] dark:text-[#666]">
+            <Shield size={12} />
             <span>Secured with OAuth 2.0</span>
           </div>
 
           {/* DEVELOPMENT BYPASS UI */}
           {isDev && (
-            <div className="mt-8 pt-6 border-t border-dashed border-gray-200 dark:border-[#2c333a]">
-              <div className="flex items-center gap-2 mb-4 text-[#0052cc] dark:text-[#4c9aff]">
+            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-[#222]">
+              <div className="flex items-center gap-2 mb-4 text-[#666] dark:text-[#888]">
                 <UserCheck size={14} />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Dev Bypass</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest">Dev Bypass</span>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => handleMockLogin("Keshav (Host)", "keshav@provusinc.com")}
-                  className="flex flex-col items-center justify-center p-3.5 rounded-xl border border-gray-200 dark:border-[#2c333a] hover:border-[#0052cc] dark:hover:border-[#4c9aff] bg-gray-50/50 dark:bg-[#111214]/50 transition-all group card-hover"
+                  className="flex flex-col items-center justify-center p-3 rounded-lg border border-gray-200 dark:border-[#333] hover:border-gray-400 dark:hover:border-[#666] active:scale-[0.98] bg-gray-50/50 dark:bg-[#111]/50 transition-all group"
                 >
-                  <span className="text-sm font-semibold text-[#172b4d] dark:text-[#dfe1e6]">Host User</span>
-                  <span className="text-[10px] text-gray-400 group-hover:text-[#0052cc] dark:group-hover:text-[#4c9aff] transition-colors mt-0.5">Dev only</span>
+                  <span className="text-sm text-[#111] dark:text-[#ededed]">Host User</span>
+                  <span className="text-[10px] text-[#888] dark:text-[#666] mt-0.5 group-hover:text-[#111] dark:group-hover:text-[#ededed] transition-colors">Dev only</span>
                 </button>
                 <button
                   onClick={() => handleMockLogin("Guest User", "guest@provusinc.com")}
-                  className="flex flex-col items-center justify-center p-3.5 rounded-xl border border-gray-200 dark:border-[#2c333a] hover:border-[#6554c0] dark:hover:border-[#9f8fef] bg-gray-50/50 dark:bg-[#111214]/50 transition-all group card-hover"
+                  className="flex flex-col items-center justify-center p-3 rounded-lg border border-gray-200 dark:border-[#333] hover:border-gray-400 dark:hover:border-[#666] active:scale-[0.98] bg-gray-50/50 dark:bg-[#111]/50 transition-all group"
                 >
-                  <span className="text-sm font-semibold text-[#172b4d] dark:text-[#dfe1e6]">Guest User</span>
-                  <span className="text-[10px] text-gray-400 group-hover:text-[#6554c0] dark:group-hover:text-[#9f8fef] transition-colors mt-0.5">Dev only</span>
+                  <span className="text-sm text-[#111] dark:text-[#ededed]">Guest User</span>
+                  <span className="text-[10px] text-[#888] dark:text-[#666] mt-0.5 group-hover:text-[#111] dark:group-hover:text-[#ededed] transition-colors">Dev only</span>
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        <p className="text-center text-[11px] text-gray-400 dark:text-[#626f86] tracking-wide">
+        <p className="text-center text-[11px] text-[#888] dark:text-[#666] tracking-wide">
           Restricted to authorized organizational domains
         </p>
       </div>

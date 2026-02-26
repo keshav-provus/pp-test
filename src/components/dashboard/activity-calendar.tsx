@@ -83,21 +83,19 @@ function EventModal({
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative bg-white dark:bg-[#1d2125] w-full max-w-sm rounded-2xl shadow-2xl border border-gray-200 dark:border-[#2c333a] overflow-hidden"
+        className="relative bg-white dark:bg-[#0a0a0a] w-full max-w-sm rounded-2xl shadow-xl border border-gray-200 dark:border-[#333] overflow-hidden"
       >
-        <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-emerald-400 to-teal-500" />
-
         <div className="flex items-center justify-between px-5 pt-5 pb-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-[#222] text-[#111] dark:text-[#ededed] flex items-center justify-center border border-gray-200 dark:border-[#333]">
               <CalendarPlus size={16} />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-[#172b4d] dark:text-[#dfe1e6]">Schedule Session</h3>
-              <p className="text-[11px] text-gray-400 dark:text-[#626f86]">{formattedDate}</p>
+              <h3 className="font-semibold text-sm text-[#111] dark:text-[#ededed]">Schedule Session</h3>
+              <p className="text-[11px] text-[#888] dark:text-[#666]">{formattedDate}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-[#dfe1e6] hover:bg-gray-100 dark:hover:bg-[#22272b] rounded-lg transition-all">
+          <button onClick={onClose} className="p-1.5 text-[#888] hover:text-[#111] dark:hover:text-[#ededed] hover:bg-gray-100 dark:hover:bg-[#1a1a1a] rounded-lg transition-all">
             <X size={16} />
           </button>
         </div>
@@ -112,37 +110,37 @@ function EventModal({
             >
               ✓
             </motion.div>
-            <p className="text-sm font-bold text-[#172b4d] dark:text-[#dfe1e6]">Session Scheduled!</p>
-            <p className="text-xs text-gray-400 dark:text-[#626f86] mt-1">{eventName} at {eventTime}</p>
+            <p className="text-sm font-semibold text-[#111] dark:text-[#ededed]">Session Scheduled!</p>
+            <p className="text-xs text-[#888] dark:text-[#666] mt-1">{eventName} at {eventTime}</p>
           </div>
         ) : (
           <div className="px-5 py-4 space-y-4">
             <div>
-              <label className="text-[10px] font-bold text-gray-400 dark:text-[#626f86] uppercase tracking-wider mb-1.5 block">Session Name</label>
+              <label className="text-[10px] font-semibold text-[#888] dark:text-[#666] uppercase tracking-wider mb-1.5 block">Session Name</label>
               <input
                 type="text"
                 value={eventName}
                 onChange={(e) => setEventName(e.target.value)}
                 placeholder="e.g. Sprint 43 Planning"
-                className="w-full h-10 px-3 text-sm bg-gray-50 dark:bg-[#22272b] border border-gray-200 dark:border-[#2c333a] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-[#172b4d] dark:text-[#dfe1e6] placeholder:text-gray-300 dark:placeholder:text-[#626f86] transition-all"
+                className="w-full h-10 px-3 text-sm bg-white dark:bg-[#111] border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#111] dark:focus:ring-white focus:border-[#111] dark:focus:border-white text-[#111] dark:text-[#ededed] placeholder:text-gray-400 dark:placeholder:text-[#666] transition-all"
                 autoFocus
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-gray-400 dark:text-[#626f86] uppercase tracking-wider mb-1.5 block flex items-center gap-1.5">
+              <label className="text-[10px] font-semibold text-[#888] dark:text-[#666] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                 <Clock size={10} /> Time
               </label>
               <input
                 type="time"
                 value={eventTime}
                 onChange={(e) => setEventTime(e.target.value)}
-                className="w-full h-10 px-3 text-sm bg-gray-50 dark:bg-[#22272b] border border-gray-200 dark:border-[#2c333a] rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-[#172b4d] dark:text-[#dfe1e6] font-mono transition-all"
+                className="w-full h-10 px-3 text-sm bg-white dark:bg-[#111] border border-gray-200 dark:border-[#333] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#111] dark:focus:ring-white focus:border-[#111] dark:focus:border-white text-[#111] dark:text-[#ededed] font-mono transition-all"
               />
             </div>
             <button
               onClick={handleSave}
               disabled={!eventName.trim()}
-              className="w-full h-10 text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 rounded-xl shadow-md shadow-emerald-500/20 disabled:opacity-40 transition-all"
+              className="w-full h-10 text-sm font-medium text-white dark:text-[#111] bg-[#111] dark:bg-white hover:bg-[#333] dark:hover:bg-[#e5e5e5] rounded-lg disabled:opacity-40 transition-all active:scale-[0.98]"
             >
               Schedule Session
             </button>
@@ -210,10 +208,9 @@ export function ActivityCalendar({
 
   return (
     <div className={cn("relative", className)}>
-      {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-gray-400 dark:text-[#626f86]">
-          <span className="font-bold text-[#172b4d] dark:text-[#dfe1e6]">{totalSessions}</span> sessions in the last year
+        <span className="text-xs text-[#888] dark:text-[#666]">
+          <span className="font-semibold text-[#111] dark:text-[#ededed]">{totalSessions}</span> sessions in the last year
         </span>
       </div>
 
@@ -222,7 +219,7 @@ export function ActivityCalendar({
         {/* Day labels */}
         <div className="flex flex-col gap-[3px] pr-1.5 shrink-0">
           {DAYS.map((day, i) => (
-            <div key={i} className="h-[13px] text-[9px] leading-[13px] text-gray-400 dark:text-[#626f86] font-medium">
+            <div key={i} className="h-[13px] text-[9px] leading-[13px] text-[#888] dark:text-[#666] font-medium">
               {day}
             </div>
           ))}
@@ -231,7 +228,7 @@ export function ActivityCalendar({
         {/* Weeks */}
         <div className="flex gap-[3px] relative">
           {/* Month labels */}
-          <div className="absolute -top-4 left-0 right-0 flex text-[9px] text-gray-400 dark:text-[#626f86] font-medium">
+          <div className="absolute -top-4 left-0 right-0 flex text-[9px] text-[#888] dark:text-[#666] font-medium">
             {monthLabels.map((m, i) => (
               <span key={i} className="absolute" style={{ left: `${m.col * 16}px` }}>
                 {m.label}
@@ -247,7 +244,7 @@ export function ActivityCalendar({
                     className={cn(
                       "w-[13px] h-[13px] rounded-[3px] transition-all duration-150 border border-transparent",
                       getLevel(day.count),
-                      "hover:ring-2 hover:ring-[#0052cc]/30 dark:hover:ring-[#4c9aff]/30 hover:scale-125"
+                      "hover:ring-1 hover:ring-[#111] dark:hover:ring-white hover:scale-125 hover:z-10"
                     )}
                     onMouseEnter={() => setHoveredCell(day.date)}
                     onMouseLeave={() => setHoveredCell(null)}
@@ -258,7 +255,7 @@ export function ActivityCalendar({
                   />
                   {/* Tooltip */}
                   {hoveredCell === day.date && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-20 bg-[#172b4d] dark:bg-[#dfe1e6] text-white dark:text-[#172b4d] text-[10px] font-medium px-2 py-1 rounded-md whitespace-nowrap pointer-events-none shadow-lg">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-20 bg-[#111] dark:bg-white text-white dark:text-[#111] text-[10px] font-medium px-2 py-1 rounded shadow-md whitespace-nowrap pointer-events-none">
                       {day.count} session{day.count !== 1 ? "s" : ""} on {new Date(day.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </div>
                   )}
@@ -271,11 +268,11 @@ export function ActivityCalendar({
 
       {/* Legend */}
       <div className="flex items-center gap-1.5 mt-3 justify-end">
-        <span className="text-[9px] text-gray-400 dark:text-[#626f86]">Less</span>
+        <span className="text-[9px] text-[#888] dark:text-[#666]">Less</span>
         {[0, 1, 2, 3, 4].map((level) => (
           <div key={level} className={cn("w-[11px] h-[11px] rounded-[2px]", getLevel(level))} />
         ))}
-        <span className="text-[9px] text-gray-400 dark:text-[#626f86]">More</span>
+        <span className="text-[9px] text-[#888] dark:text-[#666]">More</span>
       </div>
 
       {/* Event creation popup */}

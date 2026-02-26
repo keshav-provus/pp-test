@@ -51,7 +51,7 @@ function AnimatedCounter({ value }: { value: number }) {
       key={value}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="text-5xl font-black tabular-nums bg-gradient-to-br from-[#0052cc] to-[#6554c0] dark:from-[#4c9aff] dark:to-[#9f8fef] bg-clip-text text-transparent"
+      className="text-5xl font-black tabular-nums bg-gradient-to-br from-[#111] to-[#666] dark:from-[#ededed] dark:to-[#888] bg-clip-text text-transparent"
     >
       {value}
     </motion.span>
@@ -70,16 +70,16 @@ function FloatingCards() {
             key={i}
             className={cn(
               "w-20 h-28 rounded-xl border p-2.5 flex flex-col justify-between shrink-0",
-              "bg-white/50 dark:bg-[#22272b]/50 border-gray-200/50 dark:border-[#2c333a]/50",
+              "bg-white dark:bg-[#111] border-gray-200 dark:border-[#333]",
               "transform-gpu blur-[0.5px] group-hover:blur-none transition-all duration-500"
             )}
           >
-            <div className="w-4 h-4 rounded bg-gradient-to-br from-[#0052cc]/20 to-[#6554c0]/20 dark:from-[#4c9aff]/20 dark:to-[#9f8fef]/20" />
+            <div className="w-4 h-4 rounded bg-[#111] dark:bg-[#ededed] opacity-20" />
             <div className="space-y-1">
-              <div className="h-1 w-full bg-gray-200/60 dark:bg-[#2c333a]/60 rounded" />
-              <div className="h-1 w-3/4 bg-gray-200/40 dark:bg-[#2c333a]/40 rounded" />
+              <div className="h-1 w-full bg-gray-200 dark:bg-[#333] rounded" />
+              <div className="h-1 w-3/4 bg-gray-100 dark:bg-[#222] rounded" />
             </div>
-            <span className="text-[8px] font-bold text-gray-400 dark:text-[#626f86] uppercase">{card}</span>
+            <span className="text-[8px] font-bold text-gray-400 dark:text-[#888] uppercase">{card}</span>
           </div>
         ))}
       </div>
@@ -141,22 +141,19 @@ function IssuesModal({
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.92, opacity: 0, y: 20 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative bg-white dark:bg-[#1d2125] w-full max-w-lg max-h-[70vh] rounded-2xl shadow-2xl border border-gray-200 dark:border-[#2c333a] overflow-hidden flex flex-col"
+        className="relative bg-white dark:bg-[#0a0a0a] w-full max-w-lg max-h-[70vh] rounded-2xl shadow-xl border border-gray-200 dark:border-[#333] overflow-hidden flex flex-col"
       >
-        <div className="absolute top-0 inset-x-0 h-[3px] brand-gradient" />
-
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 dark:border-[#2c333a]">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 dark:border-[#222]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0052cc] to-[#6554c0] text-white flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[#111] dark:bg-white text-white dark:text-[#111] flex items-center justify-center shadow-sm">
               <BarChart3 size={16} />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-[#172b4d] dark:text-[#dfe1e6]">Estimated Issues</h3>
-              <p className="text-[11px] text-gray-400 dark:text-[#626f86]">{issues.length} issues across all sessions</p>
+              <h3 className="font-semibold text-sm text-[#111] dark:text-[#ededed]">Estimated Issues</h3>
+              <p className="text-[11px] text-[#666] dark:text-[#a1a1aa]">{issues.length} issues across all sessions</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-[#dfe1e6] hover:bg-gray-100 dark:hover:bg-[#22272b] rounded-lg transition-all">
+          <button onClick={onClose} className="p-1.5 text-[#888] hover:text-[#111] dark:hover:text-[#ededed] hover:bg-gray-100 dark:hover:bg-[#1a1a1a] rounded-lg transition-all">
             <X size={16} />
           </button>
         </div>
@@ -173,27 +170,27 @@ function IssuesModal({
                 initial={{ opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.03 }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#22272b]/50 transition-colors group"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#111] transition-colors group"
               >
-                <span className="text-[11px] font-mono font-bold text-[#0052cc] dark:text-[#4c9aff] bg-[#e9f2ff] dark:bg-[#0052cc]/10 px-2 py-0.5 rounded-md border border-[#cce0ff] dark:border-[#0052cc]/20 shrink-0">
+                <span className="text-[11px] font-mono font-medium text-[#111] dark:text-[#ededed] bg-gray-100 dark:bg-[#222] px-2 py-0.5 rounded-md border border-gray-200 dark:border-[#333] shrink-0">
                   {issue.key}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[#172b4d] dark:text-[#dfe1e6] truncate">{issue.summary}</p>
-                  <p className="text-[10px] text-gray-400 dark:text-[#626f86]">
+                  <p className="text-sm font-medium text-[#111] dark:text-[#ededed] truncate">{issue.summary}</p>
+                  <p className="text-[10px] text-[#666] dark:text-[#888]">
                     {issue.session} · {issue.date}
                     <span className={cn(
-                      "ml-1.5 px-1.5 py-0 rounded text-[9px] font-bold uppercase",
+                      "ml-1.5 px-1.5 py-0 rounded text-[9px] font-medium uppercase border",
                       issue.source === "jira"
-                        ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                        : "bg-gray-100 dark:bg-[#22272b] text-gray-500 dark:text-[#8c9bab]"
+                        ? "bg-gray-50 dark:bg-[#111] text-[#111] dark:text-[#ededed] border-gray-200 dark:border-[#333]"
+                        : "bg-transparent text-[#888] dark:text-[#666] border-transparent"
                     )}>
                       {issue.source}
                     </span>
                   </p>
                 </div>
                 {issue.points && issue.points !== "—" && (
-                  <span className="text-sm font-bold text-[#006644] dark:text-[#57d9a3] bg-[#e3fcef] dark:bg-[#006644]/20 px-2 py-0.5 rounded-md border border-[#006644]/10 dark:border-[#57d9a3]/10 shrink-0">
+                  <span className="text-sm font-semibold text-[#111] dark:text-[#ededed] bg-gray-100 dark:bg-[#222] px-2 py-0.5 rounded-md border border-gray-200 dark:border-[#333] shrink-0">
                     {issue.points} pts
                   </span>
                 )}
@@ -202,9 +199,9 @@ function IssuesModal({
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 dark:border-[#2c333a] text-center">
-          <span className="text-xs text-gray-400 dark:text-[#626f86]">
-            Total: <span className="font-bold text-[#172b4d] dark:text-[#dfe1e6]">{totalPoints} story points</span>
+        <div className="px-5 py-3 border-t border-gray-100 dark:border-[#222] text-center">
+          <span className="text-xs text-[#666] dark:text-[#888]">
+            Total: <span className="font-semibold text-[#111] dark:text-[#ededed]">{totalPoints} story points</span>
           </span>
         </div>
       </motion.div>
@@ -228,16 +225,16 @@ function RecentSessionsBackground({ sessions }: { sessions: { name: string; date
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 + i * 0.1 }}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50/80 dark:bg-[#22272b]/40 border border-gray-100 dark:border-[#2c333a]/60"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#333]"
           >
             <div className={cn(
               "w-1.5 h-1.5 rounded-full shrink-0",
               s.status === "live"
-                ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]"
-                : "bg-gray-300 dark:bg-[#626f86]"
+                ? "bg-teal-500 shadow-[0_0_6px_rgba(20,184,166,0.5)]"
+                : "bg-gray-300 dark:bg-[#444]"
             )} />
-            <span className="text-[11px] font-medium text-[#172b4d] dark:text-[#dfe1e6] truncate flex-1">{s.name}</span>
-            <span className="text-[9px] text-gray-400 dark:text-[#626f86] shrink-0 font-mono">{s.date}</span>
+            <span className="text-[11px] font-medium text-[#111] dark:text-[#ededed] truncate flex-1">{s.name}</span>
+            <span className="text-[9px] text-[#888] dark:text-[#666] shrink-0 font-mono">{s.date}</span>
           </motion.div>
         ))}
       </div>
@@ -327,7 +324,7 @@ export default function DashboardPage() {
   }, [sessions]);
 
   return (
-    <div className="min-h-screen page-bg text-[#172b4d] dark:text-[#b6c2cf] font-sans transition-colors">
+    <div className="min-h-screen page-bg text-[#111] dark:text-[#ededed] font-sans transition-colors">
       <Navbar 
         firstName={firstName} 
         email={session?.user?.email || ""} 
@@ -343,13 +340,13 @@ export default function DashboardPage() {
           className="mb-8"
         >
           <div className="flex items-center gap-2 mb-1">
-            <Zap size={14} className="text-[#0052cc] dark:text-[#4c9aff]" />
-            <span className="text-xs font-bold text-[#0052cc] dark:text-[#4c9aff] uppercase tracking-widest">Dashboard</span>
+            <Zap size={14} className="text-[#111] dark:text-[#ededed]" />
+            <span className="text-xs font-semibold text-[#111] dark:text-[#ededed] uppercase tracking-widest">Dashboard</span>
           </div>
-          <h1 className="text-2xl font-bold text-[#172b4d] dark:text-[#dfe1e6] mb-1">
+          <h1 className="text-2xl font-semibold text-[#111] dark:text-[#ededed] mb-1">
             {greeting}, {firstName}
           </h1>
-          <p className="text-sm text-gray-500 dark:text-[#8c9bab]">
+          <p className="text-sm text-[#666] dark:text-[#a1a1aa]">
             {loading ? "Loading your data…" : `${sessions.length} sessions · ${totalIssues} issues · ${totalPoints} story points`}
           </p>
         </motion.header>
@@ -392,8 +389,8 @@ export default function DashboardPage() {
             background={
               <div className="absolute inset-0 flex items-center justify-center">
                 <AnimatedCounter value={totalIssues} />
-                <div className="absolute w-32 h-32 rounded-full border border-[#0052cc]/5 dark:border-[#4c9aff]/5" />
-                <div className="absolute w-48 h-48 rounded-full border border-[#0052cc]/[0.03] dark:border-[#4c9aff]/[0.03]" />
+                <div className="absolute w-32 h-32 rounded-full border border-gray-200 dark:border-[#333]" />
+                <div className="absolute w-48 h-48 rounded-full border border-gray-100 dark:border-[#222]" />
               </div>
             }
           />
