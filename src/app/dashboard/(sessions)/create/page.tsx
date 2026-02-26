@@ -7,8 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Navbar } from "@/components/dashboard/navbar";
 import { ActionCard } from "@/components/dashboard/action-card";
-import { nanoid } from "nanoid";
 
+// Native alternative to nanoid for small, sharable IDs
+const generateRoomId = (length = 8) => {
+  // We exclude 0, O, I, 1 to make the code easier to read/type for users
+  const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes)
+    .map((byte) => alphabet[byte % alphabet.length])
+    .join("");
+};
 
 export default function CreateSessionPage() {
   const router = useRouter();
@@ -16,8 +24,15 @@ export default function CreateSessionPage() {
 
   const handleCreateSession = () => {
     if (!username.trim()) return;
-    const sessionId = nanoid(8).toUpperCase();
-    router.push(`/dashboard/voting?sessionId=${sessionId}&role=host&name=${encodeURIComponent(username.trim())}`);
+    
+    // Using the native generator instead of nanoid
+    const sessionId = generateRoomId(8);
+    
+    router.push(
+      `/dashboard/voting?sessionId=${sessionId}&role=host&name=${encodeURIComponent(
+        username.trim()
+      )}`
+    );
   };
 
   return (
@@ -64,14 +79,13 @@ export default function CreateSessionPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
-          
           <ActionCard 
-  title="Custom stories"
-  description="Create stories one by one. Perfect for quick ad-hoc sessions."
-  icon={FileEdit}
-  colorClassName="bg-lime-400 text-black shadow-[0_0_25px_rgba(163,230,53,0.3)]"
-  onClick={handleCreateSession}
-/>
+            title="Custom stories"
+            description="Create stories one by one. Perfect for quick ad-hoc sessions."
+            icon={FileEdit}
+            colorClassName="bg-lime-400 text-black shadow-[0_0_25px_rgba(163,230,53,0.3)]"
+            onClick={handleCreateSession}
+          />
 
           <ActionCard 
             title="Jira Board"
@@ -80,7 +94,6 @@ export default function CreateSessionPage() {
             colorClassName="bg-blue-500 text-white shadow-[0_0_25px_rgba(59,130,246,0.3)]"
             onClick={() => console.log("Navigate to Jira OAuth flow")}
           />
-
         </div>
 
         {/* Subtle footer tip */}

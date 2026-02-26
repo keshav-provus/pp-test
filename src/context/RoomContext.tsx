@@ -55,8 +55,8 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       const state = newChannel.presenceState();
       const participantList: Participant[] = [];
       
-      Object.entries(state).forEach(([, presences]: [string, any]) => {
-        presences.forEach((presence: any) => {
+      Object.entries(state).forEach(([, presences]: [string, Array<{ presence_ref: string; participant: Participant }>]) => {
+        presences.forEach((presence: { presence_ref: string; participant: Participant }) => {
           if (presence.participant) {
             participantList.push(presence.participant);
           }
