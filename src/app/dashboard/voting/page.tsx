@@ -69,10 +69,10 @@ function TimerBar({
     <>
       {/* Timer bar */}
       <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all ${expired
-          ? "bg-destructive/10 border-destructive/50"
-          : urgent
-            ? "bg-warning/20 border-warning/50"
-            : "bg-card border-border"
+        ? "bg-destructive/10 border-destructive/50"
+        : urgent
+          ? "bg-warning/20 border-warning/50"
+          : "bg-card border-border"
         }`}>
         <Timer size={15} className={urgent ? "text-warning" : "text-muted-foreground"} />
       </div>
@@ -107,8 +107,8 @@ function TimerBar({
         <button
           onClick={() => isHost && !timerRunning && setEditing(true)}
           className={`font-mono text-sm font-semibold tabular-nums min-w-[3rem] ${urgent ? "text-warning" :
-              expired ? "text-destructive" :
-                "text-foreground"
+            expired ? "text-destructive" :
+              "text-foreground"
             } ${isHost && !timerRunning ? "cursor-pointer hover:opacity-75" : "cursor-default"}`}
           title={isHost && !timerRunning ? "Click to edit timer" : undefined}
         >
@@ -234,16 +234,13 @@ function PokerSessionContent() {
   useEffect(() => {
     setIsMounted(true);
     // Only the host needs to load issues from sessionStorage
+    // NOTE: We do NOT broadcast here — the channel isn't created yet (joinRoom
+    // runs in a later effect). The broadcast is deferred to didInitBroadcast.
     if (isHost && typeof window !== "undefined") {
       const saved = sessionStorage.getItem("pending_jira_issues");
       if (saved) {
         const parsed = JSON.parse(saved) as JiraIssue[];
         setIssues(parsed);
-        // Broadcast the full list so participants can see the backlog
-        broadcastIssuesList(parsed.map(i => ({
-          id: i.id, key: i.key, summary: i.summary,
-          status: i.status, statusCategory: i.statusCategory,
-        })));
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -269,6 +266,12 @@ function PokerSessionContent() {
     const first = issues[0];
     // Small delay to ensure channel subscription is ready
     const t = setTimeout(() => {
+      // Broadcast the full issues list so participants can see the backlog
+      broadcastIssuesList(issues.map(i => ({
+        id: i.id, key: i.key, summary: i.summary,
+        status: i.status, statusCategory: i.statusCategory,
+      })));
+      // Then broadcast the first active issue
       broadcastActiveIssue(0, {
         id: first.id, key: first.key,
         summary: first.summary, status: first.status,
@@ -711,8 +714,8 @@ function PokerSessionContent() {
               <button
                 onClick={() => setAddIssueTab("custom")}
                 className={`flex-1 py-3 text-sm font-medium transition-colors ${addIssueTab === "custom"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
               >
                 <FileEdit size={14} className="inline mr-1.5 -mt-0.5" /> Custom Issue
@@ -720,8 +723,8 @@ function PokerSessionContent() {
               <button
                 onClick={() => setAddIssueTab("jira")}
                 className={`flex-1 py-3 text-sm font-medium transition-colors ${addIssueTab === "jira"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
               >
                 <Share2 size={14} className="inline mr-1.5 -mt-0.5" /> Fetch from Jira
@@ -820,8 +823,8 @@ function PokerSessionContent() {
               <button
                 onClick={() => setShowTimerPanel(v => !v)}
                 className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-all font-medium text-xs ${showTimerPanel
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "text-muted-foreground bg-card border-border hover:text-foreground hover:bg-secondary"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "text-muted-foreground bg-card border-border hover:text-foreground hover:bg-secondary"
                   }`}
               >
                 <Timer size={14} /> <span className="hidden sm:inline">Timer</span>
@@ -1048,8 +1051,8 @@ function PokerSessionContent() {
               {!isHost && (
                 <div className="ml-auto">
                   <span className={`text-[10px] font-semibold px-2 py-1.5 rounded-md uppercase tracking-wide border ${revealed
-                      ? "bg-secondary text-foreground border-border"
-                      : "bg-secondary/50 text-muted-foreground border-border"
+                    ? "bg-secondary text-foreground border-border"
+                    : "bg-secondary/50 text-muted-foreground border-border"
                     }`}>
                     {revealed ? <><EyeOff size={11} className="inline mr-1" />Revealed</> : `${votedCount}/${totalParticipants} Voted`}
                   </span>
@@ -1107,8 +1110,8 @@ function PokerSessionContent() {
                       key={v}
                       onClick={() => { setMyVote(v); castVote(participantName, v as number | null); }}
                       className={`w-[60px] h-[84px] rounded-xl font-bold text-xl flex items-center justify-center transition-all duration-200 select-none ${myVote === v
-                          ? "border-2 border-primary bg-primary/10 text-primary -translate-y-2 shadow-sm scale-110"
-                          : "border border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground hover:-translate-y-1 shadow-sm"
+                        ? "border-2 border-primary bg-primary/10 text-primary -translate-y-2 shadow-sm scale-110"
+                        : "border border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground hover:-translate-y-1 shadow-sm"
                         }`}
                     >
                       {v}
@@ -1159,10 +1162,10 @@ function PokerSessionContent() {
                           key={issue.id}
                           onClick={() => isHost && jumpToIssue(idx)}
                           className={`border-b border-border transition-colors ${isActive
-                              ? "bg-secondary"
-                              : isHost
-                                ? "hover:bg-secondary/50 cursor-pointer"
-                                : ""
+                            ? "bg-secondary"
+                            : isHost
+                              ? "hover:bg-secondary/50 cursor-pointer"
+                              : ""
                             }`}
                         >
                           <td className="px-4 py-2 relative">
