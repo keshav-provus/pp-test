@@ -123,41 +123,54 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     isHostRef.current = isHost;
 
     const newChannel = supabase.channel(`poker:${roomId}`, {
-      config: { broadcast: { self: true } },
+      config: {
+        broadcast: { self: true },
+        presence: { key: participantName },
+      },
     });
 
     newChannel
       .on("presence", { event: "sync" }, () => {
         const state = newChannel.presenceState();
         const participantList: Participant[] = [];
+        const seen = new Set<string>();
         Object.entries(state).forEach(([, presences]) => {
           const typed = presences as unknown as Array<{ participant: Participant }>;
-          typed.forEach((p) => { if (p.participant) participantList.push(p.participant); });
+          typed.forEach((p) => {
+            if (p.participant && !seen.has(p.participant.name)) {
+              seen.add(p.participant.name);
+              participantList.push(p.participant);
+            }
+          });
         });
         setParticipants(participantList);
       })
       .on("presence", { event: "join" }, ({ newPresences }) => {
-        const participant = (newPresences[0] as unknown as { participant: Participant })?.participant;
-        if (participant) {
-          setParticipants((prev) => {
-            const exists = prev.some((p) => p.name === participant.name);
-            return exists ? prev : [...prev, participant];
-          });
-          // Host proactively pushes full state whenever a new participant joins
-          if (isHost && participant.name !== participantName) {
-            const snap = snapshotRef.current;
-            newChannel.send({
-              type: "broadcast",
-              event: "state_sync",
-              payload: { target: participant.name, snapshot: snap },
+        const typed = newPresences as unknown as Array<{ participant: Participant }>;
+        typed.forEach((entry) => {
+          const participant = entry?.participant;
+          if (participant) {
+            setParticipants((prev) => {
+              const exists = prev.some((p) => p.name === participant.name);
+              return exists ? prev : [...prev, participant];
             });
+            // Host proactively pushes full state whenever a new participant joins
+            if (isHost && participant.name !== participantName) {
+              const snap = snapshotRef.current;
+              newChannel.send({
+                type: "broadcast",
+                event: "state_sync",
+                payload: { target: participant.name, snapshot: snap },
+              });
+            }
           }
-        }
+        });
       })
       .on("presence", { event: "leave" }, ({ leftPresences }) => {
-        const participant = (leftPresences[0] as unknown as { participant: Participant })?.participant;
-        if (participant) {
-          setParticipants((prev) => prev.filter((p) => p.name !== participant.name));
+        const typed = leftPresences as unknown as Array<{ participant: Participant }>;
+        const leftNames = typed.map((p) => p?.participant?.name).filter(Boolean);
+        if (leftNames.length > 0) {
+          setParticipants((prev) => prev.filter((p) => !leftNames.includes(p.name)));
         }
       })
       .on("broadcast", { event: "votes_updated" }, (payload) => {
