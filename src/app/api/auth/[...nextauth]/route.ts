@@ -1,6 +1,5 @@
 import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
 import GoogleProvider, { GoogleProfile } from "next-auth/providers/google";
-import CredentialsProvider from "next-auth/providers/credentials"; // NEW
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { ALLOWED_DOMAINS } from "@/lib/constants";
@@ -24,6 +23,7 @@ declare module "next-auth/jwt" {
   }
 }
 
+// Initialize Supabase with Service Role to bypass RLS for auth checks
 const supabase = createClient(
   env.NEXT_PUBLIC_SUPABASE_URL,
   env.SUPABASE_SERVICE_ROLE_KEY
@@ -47,68 +47,41 @@ export const authOptions: NextAuthOptions = {
           name: profile.name,
           email: profile.email,
           image: profile.picture,
-          role: "user",
+          role: "user", // Default role; will be overridden by DB value in jwt callback
         };
       },
     }),
-    // --- NEW: DEVELOPMENT CREDENTIALS PROVIDER ---
-    ...(process.env.NODE_ENV === "development"
-      ? [
-          CredentialsProvider({
-            name: "Development Bypass",
-            credentials: {
-              name: { label: "Name", type: "text" },
-              email: { label: "Email", type: "text" },
-            },
-            async authorize(credentials) {
-              if (!credentials?.email) return null;
-              // Return a mock user object
-              return {
-                id: `dev-${credentials.email}`,
-                name: credentials.name || "Dev User",
-                email: credentials.email,
-                role: "admin", // Give dev users admin rights for testing
-              };
-            },
-          }),
-        ]
-      : []),
   ],
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60,
+    maxAge: 24 * 60 * 60, // 24 hours
   },
   callbacks: {
-    async signIn({ profile, account }) {
-      // FIX: Always allow credentials provider on localhost
-      if (process.env.NODE_ENV === "development" && account?.provider === "credentials") {
-        return true;
-      }
+    async signIn({ profile }) {
+  console.log("--- AUTH ATTEMPT ---");
+  const email = profile?.email?.toLowerCase();
+  console.log("Attempting email:", email);
 
-      const email = profile?.email?.toLowerCase();
-      if (!email) return "/auth/error?error=NoEmail";
-      
-      // FIX: Bypass domain check on localhost
-      const isLocalhost = process.env.NODE_ENV === "development";
-      const isDomainAllowed = ALLOWED_DOMAINS.some((domain) => 
-        email.endsWith(`@${domain.toLowerCase()}`)
-      );
+  if (!email) return "/auth/error?error=NoEmail";
+  
+  const isDomainAllowed = ALLOWED_DOMAINS.some((domain) => 
+    email.endsWith(`@${domain.toLowerCase()}`)
+  );
 
-      if (isLocalhost || isDomainAllowed) {
-        return true; 
-      }
+  console.log("Domain Allowed?", isDomainAllowed);
 
-      return false; 
-    },
+  if (!isDomainAllowed) {
+    console.log("❌ ACCESS DENIED: Not a Provus email.");
+    return false; // Returning FALSE explicitly kills the session creation
+  }
+
+  console.log("✅ ACCESS GRANTED: Proceeding to Sync...");
+  return true; 
+},
 
     async jwt({ token, user }) {
+      // On initial sign-in, fetch the true role from the database
       if (user) {
-        // Skip DB check for mock dev users to avoid Supabase errors
-        if (user.id.startsWith("dev-")) {
-          token.role = user.role;
-          return token;
-        }
-
         const { data } = await supabase
           .from("profiles")
           .select("role")
@@ -135,4 +108,4 @@ export const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST }; // Fix: Ensure POST is exported for Credentials
+export { handler as GET, handler as POST };

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Spade } from "lucide-react";
+import { ThemeToggle } from "../ui/theme-toggle";
+
 
 export default function Navbar() {
   return (
@@ -43,15 +45,15 @@ export default function Navbar() {
 
         {/* Right Side: Theme Toggle & Login */}
         <div className="flex items-center gap-4">
-          {/* <ThemeToggle /> */}
-          {/* <Link href="/login"> */}
+          <ThemeToggle />
+          <Link href="/login">
             <Button
               variant="outline"
               className="border-primary/40 text-primary hover:bg-primary/10 hover:border-primary bg-transparent text-sm font-medium transition-all duration-300 hover:text-foreground hover:shadow-[0_0_20px_rgba(37,99,235,0.2)]"
             >
               Sign In
             </Button>
-          {/* </Link> */}
+          </Link>
         </div>
       </div>
     </header>
