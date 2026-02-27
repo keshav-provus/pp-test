@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Users, BarChart3, Calendar, History, Zap, X } from "lucide-react";
+import { Plus, Users, BarChart3, Calendar, History, Zap, X, ChevronDown, Clock, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -242,6 +242,196 @@ function RecentSessionsBackground({ sessions }: { sessions: { name: string; date
   );
 }
 
+// ─── Sessions detail modal ──────────────────────────────────────────────────
+
+function SessionsModal({
+  sessions,
+  onClose,
+}: {
+  sessions: SessionRecord[];
+  onClose: () => void;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.92, opacity: 0, y: 20 }}
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        className="relative bg-card w-full max-w-2xl max-h-[80vh] rounded-2xl shadow-xl border border-border overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
+              <History size={16} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm text-foreground">Recent Sessions</h3>
+              <p className="text-[11px] text-muted-foreground">{sessions.length} sessions completed</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Session list */}
+        <div className="flex-1 overflow-y-auto px-3 py-2">
+          {sessions.length === 0 ? (
+            <div className="py-16 text-center text-sm text-muted-foreground">
+              No sessions yet. Complete a planning poker session to see it here.
+            </div>
+          ) : (
+            sessions.map((s, i) => {
+              const isExpanded = expandedId === s.id;
+              const issueCount = s.session_issues?.length || 0;
+              const participantCount = s.session_participants?.length || 0;
+              const dateStr = formatRelativeDate(s.created_at);
+              const timeStr = new Date(s.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+              return (
+                <motion.div
+                  key={s.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  className="mb-1"
+                >
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : s.id)}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-secondary transition-colors text-left group"
+                  >
+                    <div className={cn(
+                      "w-2 h-2 rounded-full shrink-0",
+                      s.status === "live"
+                        ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"
+                        : "bg-muted-foreground/30"
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{s.name}</p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <Clock size={10} />
+                          {dateStr}, {timeStr}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <User size={10} />
+                          {s.host_name}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <span className="text-xs font-semibold text-foreground">{s.total_points} pts</span>
+                        <p className="text-[10px] text-muted-foreground">{issueCount} issues · {participantCount} people</p>
+                      </div>
+                      <ChevronDown
+                        size={14}
+                        className={cn(
+                          "text-muted-foreground transition-transform duration-200",
+                          isExpanded && "rotate-180"
+                        )}
+                      />
+                    </div>
+                  </button>
+
+                  {/* Expanded issue list */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="pl-8 pr-3 pb-2 space-y-1">
+                          {(s.session_issues || []).length === 0 ? (
+                            <p className="text-xs text-muted-foreground italic py-2">No issues recorded.</p>
+                          ) : (
+                            (s.session_issues || []).map((issue, j) => (
+                              <div
+                                key={issue.id || j}
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-secondary/50 border border-border/50"
+                              >
+                                <span className="text-[10px] font-mono font-medium text-foreground bg-card px-1.5 py-0.5 rounded border border-border shrink-0">
+                                  {issue.issue_key}
+                                </span>
+                                <span className="text-xs text-foreground truncate flex-1">{issue.summary}</span>
+                                <span className={cn(
+                                  "text-[9px] font-medium uppercase px-1.5 py-0.5 rounded border shrink-0",
+                                  issue.source === "jira"
+                                    ? "bg-primary/10 text-primary border-primary/20"
+                                    : "bg-transparent text-muted-foreground border-border"
+                                )}>
+                                  {issue.source}
+                                </span>
+                                {issue.estimate && issue.estimate !== "—" ? (
+                                  <span className="text-xs font-semibold text-foreground bg-card px-2 py-0.5 rounded border border-border shrink-0">
+                                    {issue.estimate} pts
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground shrink-0">—</span>
+                                )}
+                              </div>
+                            ))
+                          )}
+                          {/* Participants */}
+                          {(s.session_participants || []).length > 0 && (
+                            <div className="flex items-center gap-1 pt-1">
+                              <span className="text-[10px] text-muted-foreground">Participants:</span>
+                              {(s.session_participants || []).map((p, k) => (
+                                <span
+                                  key={k}
+                                  className={cn(
+                                    "text-[10px] px-1.5 py-0.5 rounded-md border",
+                                    p.is_host
+                                      ? "bg-primary/10 text-primary border-primary/20 font-medium"
+                                      : "bg-secondary text-muted-foreground border-border"
+                                  )}
+                                >
+                                  {p.name}{p.is_host ? " (host)" : ""}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-border text-center">
+          <span className="text-xs text-muted-foreground">
+            Total: <span className="font-semibold text-foreground">
+              {sessions.reduce((s, r) => s + (r.total_points || 0), 0)} story points
+            </span>
+            {" across "}
+            <span className="font-semibold text-foreground">
+              {sessions.reduce((s, r) => s + (r.session_issues?.length || 0), 0)} issues
+            </span>
+          </span>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ─── Format date helper ─────────────────────────────────────────────────────
 
 function formatRelativeDate(dateStr: string): string {
@@ -262,6 +452,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [showIssuesModal, setShowIssuesModal] = useState(false);
+  const [showSessionsModal, setShowSessionsModal] = useState(false);
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -411,6 +602,8 @@ export default function DashboardPage() {
             name="Recent Sessions"
             description={loading ? "Loading…" : `${sessions.length} sessions completed`}
             Icon={History}
+            cta="View all sessions"
+            onClick={() => setShowSessionsModal(true)}
             className="col-span-3 lg:col-span-1"
             background={<RecentSessionsBackground sessions={recentSessionsList} />}
           />
@@ -423,6 +616,16 @@ export default function DashboardPage() {
           <IssuesModal
             issues={allIssues}
             onClose={() => setShowIssuesModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sessions detail modal */}
+      <AnimatePresence>
+        {showSessionsModal && (
+          <SessionsModal
+            sessions={sessions}
+            onClose={() => setShowSessionsModal(false)}
           />
         )}
       </AnimatePresence>
