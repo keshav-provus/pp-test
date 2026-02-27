@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Users, BarChart3, Calendar, History, Zap, X, ChevronDown, Clock, User } from "lucide-react";
+import { Plus, Users, BarChart3, History, Zap, X, ChevronDown, Clock, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { AppDock } from "@/components/dashboard/app-dock";
 import { BentoGrid, BentoCard } from "@/components/dashboard/bento-grid";
-import { ActivityCalendar } from "@/components/dashboard/activity-calendar";
 import { cn } from "@/lib/utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -511,16 +510,6 @@ export default function DashboardPage() {
     }));
   }, [sessions]);
 
-  // Activity data for calendar — count sessions per day
-  const activityData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    sessions.forEach((s) => {
-      const day = s.created_at.split("T")[0];
-      counts[day] = (counts[day] || 0) + 1;
-    });
-    return counts;
-  }, [sessions]);
-
   // Show loading while auth is being determined
   if (authStatus === "loading" || authStatus === "unauthenticated") {
     return (
@@ -554,7 +543,7 @@ export default function DashboardPage() {
           </p>
         </motion.header>
 
-        {/* Bento Grid */}
+        {/* Bento Grid — 2×2 layout */}
         <BentoGrid className="mb-8">
           {/* ── Create Session ──────────────────────────────────── */}
           <BentoCard
@@ -575,7 +564,7 @@ export default function DashboardPage() {
             description="Enter a room code to connect with your team's active session."
             cta="Join now"
             onClick={() => router.push("/dashboard/join")}
-            className="col-span-3 lg:col-span-1"
+            className=""
             background={<PulsingCode />}
             Icon={Users}
           />
@@ -587,7 +576,7 @@ export default function DashboardPage() {
             description={`${totalPoints} total story points across ${sessions.length} sessions.`}
             cta="View all issues"
             onClick={() => setShowIssuesModal(true)}
-            className="col-span-3 lg:col-span-1"
+            className=""
             Icon={BarChart3}
             background={
               <div className="absolute inset-0 flex items-center justify-center">
@@ -598,29 +587,15 @@ export default function DashboardPage() {
             }
           />
 
-          {/* ── Activity Calendar ───────────────────────────────── */}
-          <BentoCard
-            index={3}
-            name="Activity"
-            description="Your estimation activity over the past year. Click a date to schedule."
-            Icon={Calendar}
-            className="col-span-3 lg:col-span-2 min-h-[20rem]"
-            background={
-              <div className="absolute inset-x-0 top-4 px-5 pt-1">
-                <ActivityCalendar realData={activityData} />
-              </div>
-            }
-          />
-
           {/* ── Recent Sessions ──────────────────────────────────── */}
           <BentoCard
-            index={4}
+            index={3}
             name="Recent Sessions"
             description={loading ? "Loading…" : `${sessions.length} sessions completed`}
             Icon={History}
             cta="View all sessions"
             onClick={() => setShowSessionsModal(true)}
-            className="col-span-3 lg:col-span-1"
+            className=""
             background={<RecentSessionsBackground sessions={recentSessionsList} />}
           />
         </BentoGrid>

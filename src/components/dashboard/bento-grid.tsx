@@ -17,7 +17,7 @@ export function BentoGrid({
   return (
     <div
       className={cn(
-        "grid w-full auto-rows-[18rem] grid-cols-3 gap-4",
+        "grid w-full auto-rows-[18rem] grid-cols-1 md:grid-cols-2 gap-4",
         className
       )}
     >
@@ -59,7 +59,7 @@ export function BentoCard({
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
       onClick={onClick}
       className={cn(
-        "group relative col-span-3 flex flex-col justify-between overflow-hidden rounded-2xl",
+        "group relative col-span-1 flex flex-col justify-between overflow-hidden rounded-2xl",
         // Light / Dark card surface
         "bg-card",
         "border border-border",
