@@ -242,7 +242,7 @@ function PokerSessionContent() {
 
   useEffect(() => {
     if (isMounted) {
-      if (!sessionId || !role || sessionStorage.getItem(`left_session_${sessionId}`)) {
+      if (!sessionId || !role) {
         router.push("/dashboard");
         return;
       }
@@ -526,7 +526,6 @@ function PokerSessionContent() {
       await endSession();
     } else {
       await leaveSession(participantName);
-      sessionStorage.setItem(`left_session_${sessionId}`, "true");
     }
     router.push("/dashboard");
   };
