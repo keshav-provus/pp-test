@@ -5,7 +5,7 @@ import {
   ExternalLink, ChevronDown,
   RotateCcw, Users, Plus, Check, FileText,
   LogOut, Loader2, X, Share2, FileEdit, Copy, Link2,
-  Timer, Play, Square, AlertTriangle, Eye, EyeOff, Crown,
+  Timer, Play, Square, Eye, EyeOff, Crown,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -68,13 +68,12 @@ function TimerBar({
   return (
     <>
       {/* Timer bar */}
-      <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all ${
-        expired
-          ? "bg-destructive/10 border-destructive/50"
-          : urgent
+      <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all ${expired
+        ? "bg-destructive/10 border-destructive/50"
+        : urgent
           ? "bg-warning/20 border-warning/50"
           : "bg-card border-border"
-      }`}>
+        }`}>
         <Timer size={15} className={urgent ? "text-warning" : "text-muted-foreground"} />
       </div>
 
@@ -107,11 +106,10 @@ function TimerBar({
       ) : (
         <button
           onClick={() => isHost && !timerRunning && setEditing(true)}
-          className={`font-mono text-sm font-semibold tabular-nums min-w-[3rem] ${
-            urgent ? "text-warning" :
+          className={`font-mono text-sm font-semibold tabular-nums min-w-[3rem] ${urgent ? "text-warning" :
             expired ? "text-destructive" :
-            "text-foreground"
-          } ${isHost && !timerRunning ? "cursor-pointer hover:opacity-75" : "cursor-default"}`}
+              "text-foreground"
+            } ${isHost && !timerRunning ? "cursor-pointer hover:opacity-75" : "cursor-default"}`}
           title={isHost && !timerRunning ? "Click to edit timer" : undefined}
         >
           {timerRunning || (!timerRunning && duration > 0 && remaining < duration)
@@ -124,9 +122,8 @@ function TimerBar({
       {duration > 0 && (
         <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${
-              urgent ? "bg-warning" : expired ? "bg-destructive" : "bg-primary"
-            }`}
+            className={`h-full rounded-full transition-all duration-500 ${urgent ? "bg-warning" : expired ? "bg-destructive" : "bg-primary"
+              }`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -231,22 +228,19 @@ function PokerSessionContent() {
   const timerRunning = timer.startedAt !== null;
   const activeParticipants = participants.length > 0 ? participants : Object.keys(votes).map(name => ({ name, isHost: name === participantName ? isHost : false }));
   const allVoted = activeParticipants.length > 0 && activeParticipants.every(p => votes[p.name] !== undefined && votes[p.name] !== null);
-  const canReveal = isHost && (timerRunning ? timerRemaining === 0 : allVoted);
+  const canReveal = isHost && !revealed;
 
   // ── Mount ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     setIsMounted(true);
     // Only the host needs to load issues from sessionStorage
+    // NOTE: We do NOT broadcast here — the channel isn't created yet (joinRoom
+    // runs in a later effect). The broadcast is deferred to didInitBroadcast.
     if (isHost && typeof window !== "undefined") {
       const saved = sessionStorage.getItem("pending_jira_issues");
       if (saved) {
         const parsed = JSON.parse(saved) as JiraIssue[];
         setIssues(parsed);
-        // Broadcast the full list so participants can see the backlog
-        broadcastIssuesList(parsed.map(i => ({
-          id: i.id, key: i.key, summary: i.summary,
-          status: i.status, statusCategory: i.statusCategory,
-        })));
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -599,7 +593,7 @@ function PokerSessionContent() {
           return config.seriesValues;
         }
       }
-    } catch {}
+    } catch { }
     return [0, 1, 2, 3, 5, 8, 13, 21, 34]; // default Fibonacci
   }, []);
 
@@ -608,7 +602,7 @@ function PokerSessionContent() {
     try {
       const raw = sessionStorage.getItem("session_config");
       if (raw) return JSON.parse(raw).sessionName || "";
-    } catch {}
+    } catch { }
     return "";
   }, []);
 
@@ -617,7 +611,7 @@ function PokerSessionContent() {
     try {
       const raw = sessionStorage.getItem("session_config");
       if (raw) return JSON.parse(raw).seriesKey || "fibonacci";
-    } catch {}
+    } catch { }
     return "fibonacci";
   }, []);
 
@@ -722,21 +716,19 @@ function PokerSessionContent() {
             <div className="flex border-b border-border">
               <button
                 onClick={() => setAddIssueTab("custom")}
-                className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                  addIssueTab === "custom"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`flex-1 py-3 text-sm font-medium transition-colors ${addIssueTab === "custom"
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 <FileEdit size={14} className="inline mr-1.5 -mt-0.5" /> Custom Issue
               </button>
               <button
                 onClick={() => setAddIssueTab("jira")}
-                className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                  addIssueTab === "jira"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`flex-1 py-3 text-sm font-medium transition-colors ${addIssueTab === "jira"
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 <Share2 size={14} className="inline mr-1.5 -mt-0.5" /> Fetch from Jira
               </button>
@@ -832,11 +824,10 @@ function PokerSessionContent() {
             {isHost && (
               <button
                 onClick={() => setShowTimerPanel(v => !v)}
-                className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-all font-medium text-xs ${
-                  showTimerPanel
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "text-muted-foreground bg-card border-border hover:text-foreground hover:bg-secondary"
-                }`}
+                className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-all font-medium text-xs ${showTimerPanel
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "text-muted-foreground bg-card border-border hover:text-foreground hover:bg-secondary"
+                  }`}
               >
                 <Timer size={14} /> <span className="hidden sm:inline">Timer</span>
               </button>
@@ -1025,13 +1016,7 @@ function PokerSessionContent() {
                   <button
                     onClick={revealVotes}
                     disabled={!canReveal}
-                    title={
-                      !canReveal
-                        ? timerRunning
-                          ? "Waiting for timer to expire"
-                          : `Waiting for all ${totalParticipants} participants to vote (${votedCount}/${totalParticipants})`
-                        : "Reveal all votes"
-                    }
+                    title={revealed ? "Votes already revealed" : votedCount === 0 ? "Reveal votes (no votes cast yet)" : `Reveal votes (${votedCount}/${totalParticipants} voted)`}
                     className="flex items-center gap-1.5 px-2.5 h-8 text-sm font-medium rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed text-foreground bg-secondary hover:bg-secondary/80 border border-border active:scale-[0.98]"
                   >
                     <Eye size={14} /> Reveal
@@ -1040,39 +1025,37 @@ function PokerSessionContent() {
               </div>
 
               {/* No-timer hint for participants */}
-              {!isHost && !timerRunning && !revealed && (
+              {!isHost && !revealed && (
                 <span className="text-xs text-muted-foreground ml-2 font-medium">
-                  {allVoted ? "All voted — waiting for host to reveal" : `${votedCount}/${totalParticipants} voted`}
+                  {allVoted ? "All voted — waiting for host to reveal" : `${votedCount}/${totalParticipants} voted — host can reveal anytime`}
                 </span>
               )}
 
-              {/* Reveal gate indicator */}
+              {/* Vote status indicator */}
               {isHost && !revealed && (
                 <div className="ml-auto flex items-center gap-2">
-                  {!canReveal && (
+                  {timerRunning && (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground bg-secondary border border-border px-2.5 py-1 rounded-md font-medium">
-                      {timerRunning
-                        ? <><Timer size={12} /> Timer running</>
-                        : <><AlertTriangle size={12} className="text-warning" /> {votedCount}/{totalParticipants} voted</>
-                      }
+                      <Timer size={12} /> Timer running
                     </span>
                   )}
-                  {allVoted && !timerRunning && (
-                    <span className="flex items-center gap-1.5 text-xs text-foreground bg-secondary border border-border px-2.5 py-1 rounded-md font-medium">
-                      <Check size={12} /> Everyone voted!
-                    </span>
-                  )}
+                  <span className={`flex items-center gap-1.5 text-xs bg-secondary border border-border px-2.5 py-1 rounded-md font-medium ${allVoted ? "text-foreground" : "text-muted-foreground"
+                    }`}>
+                    {allVoted
+                      ? <><Check size={12} /> Everyone voted!</>
+                      : <><Users size={12} /> {votedCount}/{totalParticipants} voted</>
+                    }
+                  </span>
                 </div>
               )}
 
               {/* Already revealed badge */}
               {!isHost && (
                 <div className="ml-auto">
-                  <span className={`text-[10px] font-semibold px-2 py-1.5 rounded-md uppercase tracking-wide border ${
-                    revealed
-                      ? "bg-secondary text-foreground border-border"
-                      : "bg-secondary/50 text-muted-foreground border-border"
-                  }`}>
+                  <span className={`text-[10px] font-semibold px-2 py-1.5 rounded-md uppercase tracking-wide border ${revealed
+                    ? "bg-secondary text-foreground border-border"
+                    : "bg-secondary/50 text-muted-foreground border-border"
+                    }`}>
                     {revealed ? <><EyeOff size={11} className="inline mr-1" />Revealed</> : `${votedCount}/${totalParticipants} Voted`}
                   </span>
                 </div>
@@ -1128,11 +1111,10 @@ function PokerSessionContent() {
                     <button
                       key={v}
                       onClick={() => { setMyVote(v); castVote(participantName, v as number | null); }}
-                      className={`w-[60px] h-[84px] rounded-xl font-bold text-xl flex items-center justify-center transition-all duration-200 select-none ${
-                        myVote === v
-                          ? "border-2 border-primary bg-primary/10 text-primary -translate-y-2 shadow-sm scale-110"
-                          : "border border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground hover:-translate-y-1 shadow-sm"
-                      }`}
+                      className={`w-[60px] h-[84px] rounded-xl font-bold text-xl flex items-center justify-center transition-all duration-200 select-none ${myVote === v
+                        ? "border-2 border-primary bg-primary/10 text-primary -translate-y-2 shadow-sm scale-110"
+                        : "border border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground hover:-translate-y-1 shadow-sm"
+                        }`}
                     >
                       {v}
                     </button>
@@ -1181,13 +1163,12 @@ function PokerSessionContent() {
                         <tr
                           key={issue.id}
                           onClick={() => isHost && jumpToIssue(idx)}
-                          className={`border-b border-border transition-colors ${
-                            isActive
-                              ? "bg-secondary"
-                              : isHost
+                          className={`border-b border-border transition-colors ${isActive
+                            ? "bg-secondary"
+                            : isHost
                               ? "hover:bg-secondary/50 cursor-pointer"
                               : ""
-                          }`}
+                            }`}
                         >
                           <td className="px-4 py-2 relative">
                             <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${isActive ? "bg-primary" : "bg-transparent"}`} />
