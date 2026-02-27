@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, User, KeyRound, LogIn, Sparkles } from "lucide-react";
+import { ArrowLeft, KeyRound, LogIn, Sparkles } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import { Suspense } from "react";
 import { AppDock } from "@/components/dashboard/app-dock";
@@ -21,9 +21,8 @@ function JoinSessionContent() {
 
   // Pre-fill session code from invite link ?code= param
   const [sessionId, setSessionId] = useState(searchParams.get("code")?.toUpperCase() || "");
-  const [customName, setCustomName] = useState<string | null>(null);
 
-  const activeUsername = customName !== null ? customName : (session?.user?.name || "");
+  const activeUsername = session?.user?.name || "";
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,21 +73,6 @@ function JoinSessionContent() {
                   value={sessionId}
                   onChange={(e) => setSessionId(e.target.value.toUpperCase())}
                   className="w-full h-12 px-4 bg-card border border-border rounded-xl text-base font-mono font-semibold tracking-[0.25em] text-center uppercase text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-muted-foreground placeholder:tracking-normal placeholder:font-normal transition-all"
-                  autoComplete="off"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                  <User size={12} /> Display Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="John Doe"
-                  value={activeUsername}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  className="w-full h-11 px-4 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-muted-foreground transition-all"
                   autoComplete="off"
                 />
               </div>

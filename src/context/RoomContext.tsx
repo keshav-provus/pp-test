@@ -30,6 +30,7 @@ type RoomSnapshot = {
   votes: Record<string, number | null>;
   revealed: boolean;
   timer: TimerState;
+  issuesList: SyncedIssue[];
 };
 
 type RoomContextType = {
@@ -40,6 +41,8 @@ type RoomContextType = {
   currentIssueIndex: number;
   /** The single source of truth for the active issue — broadcast by host to ALL clients */
   activeIssue: SyncedIssue | null;
+  /** The full issues list — broadcast by host to ALL clients */
+  issuesList: SyncedIssue[];
   timer: TimerState;
   timerRemaining: number; // live countdown in seconds
   joinRoom: (sessionId: string, participantName: string, isHost: boolean) => void;
@@ -50,6 +53,8 @@ type RoomContextType = {
   leaveSession: (participantName: string) => Promise<void>;
   /** Host calls this whenever the active issue changes — broadcasts index + full issue data */
   broadcastActiveIssue: (index: number, issue: SyncedIssue) => Promise<void>;
+  /** Host broadcasts the full issues list to all participants */
+  broadcastIssuesList: (issues: SyncedIssue[]) => Promise<void>;
   setTimer: (duration: number) => Promise<void>;
   startTimer: () => Promise<void>;
   stopTimer: () => Promise<void>;
@@ -64,6 +69,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   const [sessionEnded, setSessionEnded] = useState(false);
   const [currentIssueIndex, setCurrentIssueIndex] = useState(0);
   const [activeIssue, setActiveIssue] = useState<SyncedIssue | null>(null);
+  const [issuesList, setIssuesList] = useState<SyncedIssue[]>([]);
   const [timer, setTimerState] = useState<TimerState>({ duration: 0, startedAt: null });
   const [timerRemaining, setTimerRemaining] = useState(0);
 
@@ -79,12 +85,13 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     votes: {},
     revealed: false,
     timer: { duration: 0, startedAt: null },
+    issuesList: [],
   });
 
   // Keep snapshot in sync with state
   useEffect(() => {
-    snapshotRef.current = { activeIssue, currentIssueIndex, votes, revealed, timer };
-  }, [activeIssue, currentIssueIndex, votes, revealed, timer]);
+    snapshotRef.current = { activeIssue, currentIssueIndex, votes, revealed, timer, issuesList };
+  }, [activeIssue, currentIssueIndex, votes, revealed, timer, issuesList]);
 
   // Live countdown tick
   useEffect(() => {
@@ -197,6 +204,12 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         setRevealed(false);
         setTimerState((prev) => ({ ...prev, startedAt: null }));
       })
+      // Host broadcasts the full issues list whenever it changes
+      .on("broadcast", { event: "issues_list_updated" }, (payload) => {
+        if (isHostRef.current) return;
+        const { issues } = payload.payload as { issues: SyncedIssue[] };
+        setIssuesList(issues);
+      })
       // Participant asks host for full current state (sent right after subscribing)
       .on("broadcast", { event: "request_sync" }, (payload) => {
         if (!isHost) return;
@@ -217,6 +230,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         setVotes(snapshot.votes);
         setRevealed(snapshot.revealed);
         setTimerState(snapshot.timer);
+        if (snapshot.issuesList) setIssuesList(snapshot.issuesList);
       })
       .on("broadcast", { event: "timer_updated" }, (payload) => {
         setTimerState(payload.payload as TimerState);
@@ -291,6 +305,17 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const broadcastIssuesList = useCallback(async (issues: SyncedIssue[]) => {
+    setIssuesList(issues);
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
+    await ch.send({
+      type: "broadcast",
+      event: "issues_list_updated",
+      payload: { issues },
+    });
+  }, []);
+
   const setTimer = useCallback(async (duration: number) => {
     const ch = channelRef.current;
     if (!ch || !sessionRef.current) return;
@@ -347,10 +372,10 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   return (
     <RoomContext.Provider value={{
       participants, votes, revealed, sessionEnded,
-      currentIssueIndex, activeIssue, timer, timerRemaining,
+      currentIssueIndex, activeIssue, issuesList, timer, timerRemaining,
       joinRoom, castVote, revealVotes, resetVotes,
       endSession, leaveSession,
-      broadcastActiveIssue,
+      broadcastActiveIssue, broadcastIssuesList,
       setTimer, startTimer, stopTimer,
     }}>
       {children}

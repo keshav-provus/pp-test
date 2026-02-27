@@ -193,11 +193,11 @@ function PokerSessionContent() {
 
   const {
     participants, votes, revealed, sessionEnded,
-    currentIssueIndex, activeIssue,
+    currentIssueIndex, activeIssue, issuesList,
     timer, timerRemaining,
     joinRoom, castVote, revealVotes, resetVotes,
     endSession, leaveSession,
-    broadcastActiveIssue,
+    broadcastActiveIssue, broadcastIssuesList,
     setTimer, startTimer, stopTimer,
   } = useRoom();
 
@@ -217,6 +217,9 @@ function PokerSessionContent() {
   const [showCopyToast, setShowCopyToast] = useState(false);
   const [copiedSessionId, setCopiedSessionId] = useState(false);
   const [showTimerPanel, setShowTimerPanel] = useState(false);
+  const [showAddIssueModal, setShowAddIssueModal] = useState(false);
+  const [addIssueTab, setAddIssueTab] = useState<"custom" | "jira">("custom");
+  const [addIssueCustomSummary, setAddIssueCustomSummary] = useState("");
 
   // Track if timer already auto-revealed (prevent double trigger)
   const autoRevealedRef = useRef(false);
@@ -233,10 +236,18 @@ function PokerSessionContent() {
   // ── Mount ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     setIsMounted(true);
-    // Only the host needs the local issues array; participants render from context activeIssue
+    // Only the host needs to load issues from sessionStorage
     if (isHost && typeof window !== "undefined") {
       const saved = sessionStorage.getItem("pending_jira_issues");
-      if (saved) setIssues(JSON.parse(saved));
+      if (saved) {
+        const parsed = JSON.parse(saved) as JiraIssue[];
+        setIssues(parsed);
+        // Broadcast the full list so participants can see the backlog
+        broadcastIssuesList(parsed.map(i => ({
+          id: i.id, key: i.key, summary: i.summary,
+          status: i.status, statusCategory: i.statusCategory,
+        })));
+      }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -364,8 +375,12 @@ function PokerSessionContent() {
 
   const votedCount = Object.values(votes).filter(v => v !== null).length;
   const totalParticipants = Math.max(participants.length, votedCount) || 1;
+  // For host, use local issues array; for participants, use the broadcast issuesList
+  const displayIssues: JiraIssue[] = isHost
+    ? issues
+    : issuesList.map(i => ({ id: i.id, key: i.key, summary: i.summary, status: i.status, statusCategory: i.statusCategory }));
   // isLastIssue only meaningful for host (they own the issues array)
-  const isLastIssue = isHost && issues.length > 0 && currentIssueIndex === issues.length - 1;
+  const isLastIssue = isHost && displayIssues.length > 0 && currentIssueIndex === displayIssues.length - 1;
   const estimatedIssuesCount = Object.keys(estimates).length;
   const totalStoryPoints = Object.values(estimates).reduce((s, v) => s + (parseFloat(v) || 0), 0);
 
@@ -443,6 +458,10 @@ function PokerSessionContent() {
     const updated = [...issues, newIssue];
     setIssues(updated);
     sessionStorage.setItem("pending_jira_issues", JSON.stringify(updated));
+    broadcastIssuesList(updated.map(i => ({
+      id: i.id, key: i.key, summary: i.summary,
+      status: i.status, statusCategory: i.statusCategory,
+    })));
     setCustomStoryName("");
     setShowCompletionModal(false);
     await broadcastActiveIssue(issues.length, {
@@ -457,6 +476,10 @@ function PokerSessionContent() {
     const updated = [...issues, ...newIssues];
     setIssues(updated);
     sessionStorage.setItem("pending_jira_issues", JSON.stringify(updated));
+    broadcastIssuesList(updated.map(i => ({
+      id: i.id, key: i.key, summary: i.summary,
+      status: i.status, statusCategory: i.statusCategory,
+    })));
     setShowCompletionModal(false);
     const first = newIssues[0];
     await broadcastActiveIssue(issues.length, {
@@ -466,19 +489,30 @@ function PokerSessionContent() {
     });
   };
 
-  const handleQuickAddIssue = () => {
-    const summary = window.prompt("Enter the summary for the new issue:");
-    if (!summary?.trim()) return;
+  const handleOpenAddIssueModal = () => {
+    setAddIssueCustomSummary("");
+    setAddIssueTab("custom");
+    setShowAddIssueModal(true);
+  };
+
+  const handleAddCustomIssueFromModal = () => {
+    if (!addIssueCustomSummary.trim()) return;
     const newIssue: JiraIssue = {
       id: `custom-${Date.now()}`,
       key: `C${String(issues.length + 1).padStart(3, "0")}`,
-      summary: summary.trim(),
+      summary: addIssueCustomSummary.trim(),
       status: "Custom Story",
       statusCategory: "To Do",
     };
     const updated = [...issues, newIssue];
     setIssues(updated);
     sessionStorage.setItem("pending_jira_issues", JSON.stringify(updated));
+    broadcastIssuesList(updated.map(i => ({
+      id: i.id, key: i.key, summary: i.summary,
+      status: i.status, statusCategory: i.statusCategory,
+    })));
+    setAddIssueCustomSummary("");
+    setShowAddIssueModal(false);
   };
 
   const handleEndOrLeave = async () => {
@@ -659,6 +693,93 @@ function PokerSessionContent() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD ISSUE MODAL ──────────────────────────────────────────────── */}
+      {showAddIssueModal && isHost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl border border-border overflow-hidden flex flex-col max-h-[80vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Add Issue</h2>
+              <button onClick={() => setShowAddIssueModal(false)} className="p-1.5 hover:bg-secondary rounded-md transition-colors text-muted-foreground hover:text-foreground">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => setAddIssueTab("custom")}
+                className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                  addIssueTab === "custom"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <FileEdit size={14} className="inline mr-1.5 -mt-0.5" /> Custom Issue
+              </button>
+              <button
+                onClick={() => setAddIssueTab("jira")}
+                className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                  addIssueTab === "jira"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Share2 size={14} className="inline mr-1.5 -mt-0.5" /> Fetch from Jira
+              </button>
+            </div>
+
+            {/* Tab content */}
+            <div className="p-5 flex-1 overflow-auto">
+              {addIssueTab === "custom" ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">Enter a summary for the new custom issue.</p>
+                  <input
+                    type="text"
+                    value={addIssueCustomSummary}
+                    onChange={(e) => setAddIssueCustomSummary(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddCustomIssueFromModal()}
+                    placeholder="What needs to be estimated?"
+                    className="w-full h-11 px-4 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-muted-foreground transition-all"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => setShowAddIssueModal(false)}
+                      className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAddCustomIssueFromModal}
+                      disabled={!addIssueCustomSummary.trim()}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-40 transition-colors"
+                    >
+                      Add Issue
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col h-full min-h-[300px]">
+                  <p className="text-sm text-muted-foreground mb-4">Select issues from Jira to add to the backlog.</p>
+                  <JiraMultiSelector onFinalSelection={(newIssues) => {
+                    if (!newIssues.length) return;
+                    const updated = [...issues, ...newIssues];
+                    setIssues(updated);
+                    sessionStorage.setItem("pending_jira_issues", JSON.stringify(updated));
+                    broadcastIssuesList(updated.map(i => ({
+                      id: i.id, key: i.key, summary: i.summary,
+                      status: i.status, statusCategory: i.statusCategory,
+                    })));
+                    setShowAddIssueModal(false);
+                  }} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1018,7 +1139,7 @@ function PokerSessionContent() {
                 <div className="flex items-center gap-3">
                   <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Backlog</h2>
                   <span className="bg-secondary text-foreground text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase border border-border">
-                    {estimatedIssuesCount}/{issues.length} done
+                    {estimatedIssuesCount}/{displayIssues.length} done
                   </span>
                   <span className="text-foreground text-[10px] font-semibold uppercase bg-secondary px-2 py-0.5 rounded-md border border-border">
                     {totalStoryPoints} pts
@@ -1026,7 +1147,7 @@ function PokerSessionContent() {
                 </div>
                 {isHost && (
                   <button
-                    onClick={handleQuickAddIssue}
+                    onClick={handleOpenAddIssueModal}
                     className="flex items-center gap-1 text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-secondary hover:text-foreground transition-colors"
                   >
                     <Plus size={13} /> Add Issue
@@ -1045,7 +1166,7 @@ function PokerSessionContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {issues.map((issue, idx) => {
+                    {displayIssues.map((issue, idx) => {
                       const isActive = idx === currentIssueIndex;
                       const est = estimates[issue.id];
                       return (
@@ -1080,7 +1201,7 @@ function PokerSessionContent() {
                         </tr>
                       );
                     })}
-                    {issues.length === 0 && (
+                    {displayIssues.length === 0 && (
                       <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground text-sm">No issues loaded.</td></tr>
                     )}
                   </tbody>
