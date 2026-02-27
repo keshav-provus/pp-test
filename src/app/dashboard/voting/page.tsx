@@ -732,7 +732,7 @@ function PokerSessionContent() {
             </div>
 
             {/* Tab content */}
-            <div className="p-5 flex-1 overflow-auto">
+            <div className={`flex-1 overflow-auto ${addIssueTab === "custom" ? "p-5" : "bg-white dark:bg-[#1d2125]"}`}>
               {addIssueTab === "custom" ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">Enter a summary for the new custom issue.</p>
@@ -762,8 +762,7 @@ function PokerSessionContent() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col h-full min-h-[300px]">
-                  <p className="text-sm text-muted-foreground mb-4">Select issues from Jira to add to the backlog.</p>
+                <div className="flex flex-col h-[70vh] min-h-[500px] w-full">
                   <JiraMultiSelector onFinalSelection={(newIssues) => {
                     if (!newIssues.length) return;
                     const updated = [...issues, ...newIssues];
