@@ -6,7 +6,8 @@ import { FiSearch } from "react-icons/fi";
 import { Table } from "@/components/application/table/table";
 import { Badge } from "@/components/base/badges/badges";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { type JiraBoard, type JiraSprint, type JiraIssue, getBoardData, getSprints, getIssuesBySprint } from "@/services/jira";
+import { type JiraBoard, type JiraSprint, type JiraIssue, getBoardData, getSprints, getIssuesBySprint, getIssuesByJql } from "@/services/jira";
+import { JqlEditor } from "./jql-editor";
 
 interface JiraMultiSelectorProps {
   onFinalSelection: (issues: JiraIssue[]) => void;
@@ -26,6 +27,10 @@ export const JiraMultiSelector = ({ onFinalSelection }: JiraMultiSelectorProps) 
     const [selectedBoardId, setSelectedBoardId] = useState<string>("");
     const [selectedSprintId, setSelectedSprintId] = useState<string>("");
     
+    // JQL Mode State
+    const [isJqlMode, setIsJqlMode] = useState(false);
+    const [jqlQuery, setJqlQuery] = useState("");
+
     // Selection state
     const [selectedIssueIds, setSelectedIssueIds] = useState<Set<string>>(new Set());
 
@@ -97,11 +102,26 @@ export const JiraMultiSelector = ({ onFinalSelection }: JiraMultiSelectorProps) 
     }, [selectedSprintId]);
 
     const filteredIssues = useMemo(() => {
+        if (isJqlMode) return issues; // In JQL mode, the API handles the filtering
+        
         return issues.filter(item => {
             const text = (item.summary || item.key || "").toLowerCase();
             return text.includes(searchQuery.toLowerCase());
         });
-    }, [issues, searchQuery]);
+    }, [issues, searchQuery, isJqlMode]);
+
+    const handleJqlSearch = async () => {
+        if (!jqlQuery.trim()) return;
+        setLoading(true);
+        try {
+            const data = await getIssuesByJql(jqlQuery);
+            setIssues(data);
+        } catch (err) {
+            console.error("JQL Search Failed", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleAddSelected = () => {
         const selectedIssues = issues.filter(i => selectedIssueIds.has(i.id));
@@ -112,67 +132,87 @@ export const JiraMultiSelector = ({ onFinalSelection }: JiraMultiSelectorProps) 
         <div className="flex flex-col h-full bg-white dark:bg-[#1d2125]">
             {/* Header / Filters Bar */}
             <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-[#2c333a] flex-wrap">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input 
-                        type="text"
-                        placeholder="Issue name"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full h-9 pl-9 pr-3 bg-white dark:bg-[#22272b] border border-gray-200 dark:border-[#8c9bab]/30 rounded text-sm focus:outline-none focus:border-[#0052cc] transition-colors"
-                    />
-                </div>
-                
-                <select 
-                    value={selectedBoardId} 
-                    onChange={e => setSelectedBoardId(e.target.value)}
-                    className="h-9 px-3 bg-[#e9f2ff] text-[#0052cc] dark:bg-[#1d2a3d] dark:text-[#4c9aff] border-none rounded text-sm font-medium focus:outline-none cursor-pointer"
-                >
-                    <option value="" disabled>Project</option>
-                    {boards.map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                </select>
+                {isJqlMode ? (
+                    <>
+                        <div className="flex-1 w-full min-w-[300px]">
+                            <JqlEditor 
+                                value={jqlQuery} 
+                                onChange={setJqlQuery} 
+                                onSearch={handleJqlSearch}
+                            />
+                        </div>
+                        <button 
+                            onClick={handleJqlSearch}
+                            className="h-9 px-4 bg-[#0052cc] hover:bg-[#0047b3] text-white rounded text-sm font-medium transition-colors"
+                        >
+                            Search
+                        </button>
+                        <button 
+                            onClick={() => {
+                                setIsJqlMode(false);
+                                setJqlQuery("");
+                            }}
+                            className="h-9 px-3 bg-gray-50 dark:bg-[#22272b] border border-gray-200 dark:border-[#8c9bab]/30 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
+                        >
+                            Basic
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <div className="relative flex-1 min-w-[200px] max-w-sm">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input 
+                                type="text"
+                                placeholder="Issue name"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full h-9 pl-9 pr-3 bg-white dark:bg-[#22272b] border border-gray-200 dark:border-[#8c9bab]/30 rounded text-sm focus:outline-none focus:border-[#0052cc] transition-colors"
+                            />
+                        </div>
+                        
+                        <select 
+                            value={selectedBoardId} 
+                            onChange={e => setSelectedBoardId(e.target.value)}
+                            className="h-9 px-3 bg-[#e9f2ff] text-[#0052cc] dark:bg-[#1d2a3d] dark:text-[#4c9aff] border-none rounded text-sm font-medium focus:outline-none cursor-pointer"
+                        >
+                            <option value="" disabled>Project</option>
+                            {boards.map(b => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                            ))}
+                        </select>
 
-                <select className="h-9 px-3 bg-gray-100 dark:bg-[#22272b] border border-gray-200 dark:border-[#8c9bab]/30 rounded text-sm font-medium focus:outline-none cursor-pointer">
-                    <option>Issue Type</option>
-                </select>
+                        <select 
+                            value={selectedSprintId} 
+                            onChange={e => setSelectedSprintId(e.target.value)}
+                            className="h-9 px-3 bg-gray-100 dark:bg-[#22272b] border border-gray-200 dark:border-[#8c9bab]/30 rounded text-sm font-medium focus:outline-none cursor-pointer max-w-[200px] truncate"
+                        >
+                            <option value="" disabled>Sprint</option>
+                            {sprints.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
 
-                <select className="h-9 px-3 bg-[#e9f2ff] text-[#0052cc] dark:bg-[#1d2a3d] dark:text-[#4c9aff] border-none rounded text-sm font-medium focus:outline-none cursor-pointer">
-                    <option>Status {filteredIssues.length > 0 ? filteredIssues.length : ''}</option>
-                </select>
+                        <div className="flex-1" />
 
-                <select 
-                    value={selectedSprintId} 
-                    onChange={e => setSelectedSprintId(e.target.value)}
-                    className="h-9 px-3 bg-gray-100 dark:bg-[#22272b] border border-gray-200 dark:border-[#8c9bab]/30 rounded text-sm font-medium focus:outline-none cursor-pointer max-w-[200px] truncate"
-                >
-                    <option value="" disabled>Sprint</option>
-                    {sprints.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                </select>
-
-                <button className="h-9 px-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2c333a] rounded transition-colors flex items-center gap-1">
-                    + More
-                </button>
-
-                <div className="flex-1" />
-
-                <button 
-                    onClick={() => {
-                        setSearchQuery("");
-                        setSelectedIssueIds(new Set());
-                    }}
-                    className="h-9 px-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2c333a] rounded transition-colors flex items-center gap-1"
-                >
-                    <span className="text-gray-400">⊗</span> Clear
-                </button>
-                
-                <button className="h-9 px-3 bg-gray-50 dark:bg-[#22272b] border border-gray-200 dark:border-[#8c9bab]/30 rounded text-sm font-medium hover:bg-gray-100 transition-colors flex items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                    JQL
-                </button>
+                        <button 
+                            onClick={() => {
+                                setSearchQuery("");
+                                setSelectedIssueIds(new Set());
+                            }}
+                            className="h-9 px-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2c333a] rounded transition-colors flex items-center gap-1"
+                        >
+                            <span className="text-gray-400">⊗</span> Clear
+                        </button>
+                        
+                        <button 
+                            onClick={() => setIsJqlMode(true)}
+                            className="h-9 px-3 bg-gray-50 dark:bg-[#22272b] border border-gray-200 dark:border-[#8c9bab]/30 rounded text-sm font-medium hover:bg-gray-100 transition-colors flex items-center gap-2"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                            JQL
+                        </button>
+                    </>
+                )}
             </div>
             
             <div className="px-4 py-2 bg-white dark:bg-[#1d2125]">

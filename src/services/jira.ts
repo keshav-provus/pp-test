@@ -57,6 +57,7 @@ const getJiraConfig = () => {
       Authorization: `Basic ${Buffer.from(`${user}:${apiKey}`).toString("base64")}`,
       Accept: "application/json",
       "Content-Type": "application/json",
+      "Connection": "close",
     },
   };
 };
@@ -182,6 +183,154 @@ export async function getIssuesByBoard(boardId: string): Promise<JiraIssue[]> {
   const endpoint = `/rest/agile/1.0/board/${boardId}/issue?jql=${jql}`;
   const data = await fetchPaginatedData<JiraApiIssue>(endpoint, "issues");
   return data.map(mapIssue);
+}
+
+export async function getIssuesByJql(jql: string): Promise<JiraIssue[]> {
+  const config = getJiraConfig();
+  let allData: JiraApiIssue[] = [];
+  let isLast = false;
+  let nextPageToken: string | undefined = undefined;
+
+  while (!isLast) {
+    const payload: {
+      jql: string;
+      maxResults: number;
+      fields: string[];
+      nextPageToken?: string;
+    } = {
+      jql: jql,
+      maxResults: 50,
+      fields: [
+        "summary",
+        "status",
+        "priority",
+        "assignee",
+        "reporter"
+      ]
+    };
+    
+    if (nextPageToken) {
+      payload.nextPageToken = nextPageToken;
+    }
+
+    const res = await fetch(`${config.baseUrl}/rest/api/3/search/jql`, {
+      method: "POST",
+      headers: {
+        ...config.headers,
+        "Content-Type": "application/json",
+      } as HeadersInit,
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`JQL Search Error [${res.status}]:`, errorText);
+      throw new Error(`Jira API Error [${res.status}]: ${errorText}`);
+    }
+
+    const json = await res.json();
+    const issues = json.issues || [];
+    allData = [...allData, ...issues];
+    
+    // The response returns next page token if more results exist
+    nextPageToken = json.nextPageToken;
+    isLast = json.isLast !== false; // Defend against pagination loops if undefined
+  }
+  
+  return allData.map(mapIssue);
+}
+
+export async function matchIssuesAgainstJql(issueIds: string[], jql: string): Promise<string[]> {
+  if (!issueIds.length || !jql.trim()) return [];
+  
+  const config = getJiraConfig();
+  
+  const res = await fetch(`${config.baseUrl}/rest/api/3/jql/match`, {
+    method: "POST",
+    headers: {
+      ...config.headers,
+      "Content-Type": "application/json",
+    } as HeadersInit,
+    body: JSON.stringify({
+      issueIds: issueIds.map(id => parseInt(id, 10)),
+      jqls: [jql]
+    }),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(`JQL Match Error [${res.status}]:`, errorText);
+    throw new Error(`Jira API Error [${res.status}]: ${errorText}`);
+  }
+
+  const json = await res.json();
+  const matchResult = json.matches?.[0]; // We just sent 1 JQL string
+  
+  if (matchResult && matchResult.matchedIssues) {
+    return matchResult.matchedIssues.map((id: number) => id.toString());
+  }
+  
+  return [];
+}
+
+export interface JqlAutocompleteField {
+  value: string;
+  displayName: string;
+  orderable: string;
+  searchable: string;
+  autoCompleteUrl?: string; // If present, can be used to pull values
+  operators: string[];
+}
+
+export interface JqlAutocompleteData {
+  visibleFieldNames: JqlAutocompleteField[];
+  visibleFunctionNames: { value: string; displayName: string; isList: string }[];
+}
+
+export async function getJqlAutocompleteData(): Promise<JqlAutocompleteData> {
+  const config = getJiraConfig();
+  const res = await fetch(`${config.baseUrl}/rest/api/2/jql/autocompletedata`, {
+    headers: config.headers as HeadersInit,
+    cache: "force-cache", // Structure rarely changes
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch autocomplete metadata");
+  }
+
+  return await res.json();
+}
+
+export interface JqlSuggestion {
+  value: string;
+  displayName: string;
+}
+
+export async function getJqlSuggestions(fieldName: string, fieldValue: string): Promise<JqlSuggestion[]> {
+  const config = getJiraConfig();
+  const field = encodeURIComponent(fieldName);
+  const predicate = encodeURIComponent(fieldValue);
+  
+  // Jira requires `fieldName` and `fieldValue`
+  const url = `${config.baseUrl}/rest/api/2/jql/autocompletedata/suggestions?fieldName=${field}&fieldValue=${predicate}`;
+
+  const res = await fetch(url, {
+    headers: config.headers as HeadersInit,
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    if (res.status === 400) {
+      // 400 usually means this field doesn't support value suggestions (e.g. text search)
+      return [];
+    }
+    throw new Error("Failed to fetch suggestions");
+  }
+
+  const data = await res.json();
+  return data.results || [];
 }
 
 export async function getBoardBacklog(boardId: string): Promise<JiraIssue[]> {
