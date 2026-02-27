@@ -61,8 +61,8 @@ export function BentoCard({
       className={cn(
         "group relative col-span-3 flex flex-col justify-between overflow-hidden rounded-2xl",
         // Light / Dark card surface
-        "bg-white dark:bg-[#0a0a0a]",
-        "border border-gray-200 dark:border-[#333]",
+        "bg-card",
+        "border border-border",
         // Shadow
         "shadow-sm hover:shadow-md",
         // Transitions
@@ -75,23 +75,23 @@ export function BentoCard({
       <div className="absolute inset-0 overflow-hidden">{background}</div>
 
       {/* Top gradient overlay for readability */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-[#0a0a0a] dark:via-[#0a0a0a]/80 dark:to-transparent z-[1]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-card via-card/80 to-transparent z-[1]" />
 
       {/* Content */}
       <div className="relative z-[2] flex flex-col justify-end h-full p-5 gap-1.5">
         {Icon && (
-          <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-[#111] border border-transparent dark:border-[#222] flex items-center justify-center mb-1 group-hover:scale-105 transition-transform duration-300">
-            <Icon className="w-5 h-5 text-[#111] dark:text-[#ededed]" />
+          <div className="w-10 h-10 rounded-xl bg-secondary border border-transparent flex items-center justify-center mb-1 group-hover:scale-105 transition-transform duration-300">
+            <Icon className="w-5 h-5 text-foreground" />
           </div>
         )}
-        <h3 className="text-base font-semibold text-[#111] dark:text-[#ededed] group-hover:text-[#666] dark:group-hover:text-[#a1a1aa] transition-colors">
+        <h3 className="text-base font-semibold text-foreground group-hover:text-muted-foreground transition-colors">
           {name}
         </h3>
-        <p className="text-sm text-[#666] dark:text-[#a1a1aa] leading-relaxed max-w-[280px]">
+        <p className="text-sm text-muted-foreground leading-relaxed max-w-[280px]">
           {description}
         </p>
         {cta && (
-          <div className="flex items-center gap-1.5 text-sm w-fit font-medium text-[#111] border-b border-transparent group-hover:border-[#111] dark:text-[#ededed] dark:group-hover:border-[#ededed] mt-2 opacity-0 group-hover:opacity-100 translate-x-0 group-hover:translate-x-1 transition-all duration-300">
+          <div className="flex items-center gap-1.5 text-sm w-fit font-medium text-primary border-b border-transparent group-hover:border-primary mt-2 opacity-0 group-hover:opacity-100 translate-x-0 group-hover:translate-x-1 transition-all duration-300">
             {cta}
             <ArrowRight size={14} />
           </div>

@@ -66,11 +66,11 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   const [activeIssue, setActiveIssue] = useState<SyncedIssue | null>(null);
   const [timer, setTimerState] = useState<TimerState>({ duration: 0, startedAt: null });
   const [timerRemaining, setTimerRemaining] = useState(0);
-  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
   const sessionRef = useRef<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isHostRef = useRef(false);
 
   // Always-fresh snapshot ref so host can respond to sync requests without stale closure issues
   const snapshotRef = useRef<RoomSnapshot>({
@@ -120,6 +120,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
     }
 
     sessionRef.current = roomId;
+    isHostRef.current = isHost;
 
     const newChannel = supabase.channel(`poker:${roomId}`, {
       config: { broadcast: { self: true } },
@@ -171,7 +172,11 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
         setRevealed(false);
       })
       // issue_changed now always carries { index, issue } — store both
+      // Host skips this handler because broadcastActiveIssue already sets
+      // state locally; processing the self-receipt would create a duplicate
+      // object reference and re-trigger effects (e.g. getIssueDetails).
       .on("broadcast", { event: "issue_changed" }, (payload) => {
+        if (isHostRef.current) return;
         const { index, issue } = payload.payload as { index: number; issue: SyncedIssue };
         setCurrentIssueIndex(index);
         setActiveIssue(issue);
@@ -227,8 +232,7 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       });
 
     channelRef.current = newChannel;
-    setChannel(newChannel);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const castVote = useCallback(async (participantName: string, vote: number | null) => {
     const ch = channelRef.current;
@@ -256,6 +260,15 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   }, [timer.duration]);
 
   const broadcastActiveIssue = useCallback(async (index: number, issue: SyncedIssue) => {
+    // Always update local state immediately so the host doesn't depend on
+    // receiving its own broadcast back via self:true (which can fail if the
+    // channel isn't fully subscribed yet – a race condition on mount).
+    setCurrentIssueIndex(index);
+    setActiveIssue(issue);
+    setVotes({});
+    setRevealed(false);
+    setTimerState((prev) => ({ ...prev, startedAt: null }));
+
     const ch = channelRef.current;
     if (!ch || !sessionRef.current) return;
     await ch.send({

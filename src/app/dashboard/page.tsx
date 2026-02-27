@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { Navbar } from "@/components/dashboard/navbar";
+import { AppDock } from "@/components/dashboard/app-dock";
 import { BentoGrid, BentoCard } from "@/components/dashboard/bento-grid";
 import { ActivityCalendar } from "@/components/dashboard/activity-calendar";
 import { cn } from "@/lib/utils";
@@ -51,7 +51,7 @@ function AnimatedCounter({ value }: { value: number }) {
       key={value}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="text-5xl font-black tabular-nums bg-gradient-to-br from-[#111] to-[#666] dark:from-[#ededed] dark:to-[#888] bg-clip-text text-transparent"
+      className="text-5xl font-black tabular-nums bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent"
     >
       {value}
     </motion.span>
@@ -70,16 +70,16 @@ function FloatingCards() {
             key={i}
             className={cn(
               "w-20 h-28 rounded-xl border p-2.5 flex flex-col justify-between shrink-0",
-              "bg-white dark:bg-[#111] border-gray-200 dark:border-[#333]",
+              "bg-card border-border",
               "transform-gpu blur-[0.5px] group-hover:blur-none transition-all duration-500"
             )}
           >
-            <div className="w-4 h-4 rounded bg-[#111] dark:bg-[#ededed] opacity-20" />
+            <div className="w-4 h-4 rounded bg-primary opacity-20" />
             <div className="space-y-1">
-              <div className="h-1 w-full bg-gray-200 dark:bg-[#333] rounded" />
-              <div className="h-1 w-3/4 bg-gray-100 dark:bg-[#222] rounded" />
+              <div className="h-1 w-full bg-border rounded" />
+              <div className="h-1 w-3/4 bg-border/50 rounded" />
             </div>
-            <span className="text-[8px] font-bold text-gray-400 dark:text-[#888] uppercase">{card}</span>
+            <span className="text-[8px] font-bold text-muted-foreground uppercase">{card}</span>
           </div>
         ))}
       </div>
@@ -141,26 +141,26 @@ function IssuesModal({
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.92, opacity: 0, y: 20 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="relative bg-white dark:bg-[#0a0a0a] w-full max-w-lg max-h-[70vh] rounded-2xl shadow-xl border border-gray-200 dark:border-[#333] overflow-hidden flex flex-col"
+        className="relative bg-card w-full max-w-lg max-h-[70vh] rounded-2xl shadow-xl border border-border overflow-hidden flex flex-col"
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 dark:border-[#222]">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#111] dark:bg-white text-white dark:text-[#111] flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
               <BarChart3 size={16} />
             </div>
             <div>
-              <h3 className="font-semibold text-sm text-[#111] dark:text-[#ededed]">Estimated Issues</h3>
-              <p className="text-[11px] text-[#666] dark:text-[#a1a1aa]">{issues.length} issues across all sessions</p>
+              <h3 className="font-semibold text-sm text-foreground">Estimated Issues</h3>
+              <p className="text-[11px] text-muted-foreground">{issues.length} issues across all sessions</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-[#888] hover:text-[#111] dark:hover:text-[#ededed] hover:bg-gray-100 dark:hover:bg-[#1a1a1a] rounded-lg transition-all">
+          <button onClick={onClose} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
             <X size={16} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 py-2">
           {issues.length === 0 ? (
-            <div className="py-12 text-center text-sm text-gray-400 dark:text-[#626f86]">
+            <div className="py-12 text-center text-sm text-muted-foreground">
               No issues estimated yet. Complete a session to see data here.
             </div>
           ) : (
@@ -170,27 +170,27 @@ function IssuesModal({
                 initial={{ opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.03 }}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#111] transition-colors group"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary transition-colors group"
               >
-                <span className="text-[11px] font-mono font-medium text-[#111] dark:text-[#ededed] bg-gray-100 dark:bg-[#222] px-2 py-0.5 rounded-md border border-gray-200 dark:border-[#333] shrink-0">
+                <span className="text-[11px] font-mono font-medium text-foreground bg-secondary px-2 py-0.5 rounded-md border border-border shrink-0">
                   {issue.key}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#111] dark:text-[#ededed] truncate">{issue.summary}</p>
-                  <p className="text-[10px] text-[#666] dark:text-[#888]">
+                  <p className="text-sm font-medium text-foreground truncate">{issue.summary}</p>
+                  <p className="text-[10px] text-muted-foreground">
                     {issue.session} · {issue.date}
                     <span className={cn(
                       "ml-1.5 px-1.5 py-0 rounded text-[9px] font-medium uppercase border",
                       issue.source === "jira"
-                        ? "bg-gray-50 dark:bg-[#111] text-[#111] dark:text-[#ededed] border-gray-200 dark:border-[#333]"
-                        : "bg-transparent text-[#888] dark:text-[#666] border-transparent"
+                        ? "bg-primary/10 text-primary border-primary/20"
+                        : "bg-transparent text-muted-foreground border-transparent"
                     )}>
                       {issue.source}
                     </span>
                   </p>
                 </div>
                 {issue.points && issue.points !== "—" && (
-                  <span className="text-sm font-semibold text-[#111] dark:text-[#ededed] bg-gray-100 dark:bg-[#222] px-2 py-0.5 rounded-md border border-gray-200 dark:border-[#333] shrink-0">
+                  <span className="text-sm font-semibold text-foreground bg-secondary px-2 py-0.5 rounded-md border border-border shrink-0">
                     {issue.points} pts
                   </span>
                 )}
@@ -199,9 +199,9 @@ function IssuesModal({
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 dark:border-[#222] text-center">
-          <span className="text-xs text-[#666] dark:text-[#888]">
-            Total: <span className="font-semibold text-[#111] dark:text-[#ededed]">{totalPoints} story points</span>
+        <div className="px-5 py-3 border-t border-border text-center">
+          <span className="text-xs text-muted-foreground">
+            Total: <span className="font-semibold text-foreground">{totalPoints} story points</span>
           </span>
         </div>
       </motion.div>
@@ -225,16 +225,16 @@ function RecentSessionsBackground({ sessions }: { sessions: { name: string; date
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 + i * 0.1 }}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#333]"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-card border border-border"
           >
             <div className={cn(
               "w-1.5 h-1.5 rounded-full shrink-0",
               s.status === "live"
-                ? "bg-teal-500 shadow-[0_0_6px_rgba(20,184,166,0.5)]"
-                : "bg-gray-300 dark:bg-[#444]"
+                ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"
+                : "bg-muted-foreground/30"
             )} />
-            <span className="text-[11px] font-medium text-[#111] dark:text-[#ededed] truncate flex-1">{s.name}</span>
-            <span className="text-[9px] text-[#888] dark:text-[#666] shrink-0 font-mono">{s.date}</span>
+            <span className="text-[11px] font-medium text-foreground truncate flex-1">{s.name}</span>
+            <span className="text-[9px] text-muted-foreground shrink-0 font-mono">{s.date}</span>
           </motion.div>
         ))}
       </div>
@@ -324,12 +324,8 @@ export default function DashboardPage() {
   }, [sessions]);
 
   return (
-    <div className="min-h-screen page-bg text-[#111] dark:text-[#ededed] font-sans transition-colors">
-      <Navbar 
-        firstName={firstName} 
-        email={session?.user?.email || ""} 
-        onLogout={() => signOut({ callbackUrl: "/login" })} 
-      />
+    <div className="min-h-screen page-bg text-foreground font-sans transition-colors">
+      <AppDock onLogout={() => signOut({ callbackUrl: "/login" })} />
 
       <main className="max-w-6xl mx-auto px-6 py-10">
         {/* Header */}
@@ -340,13 +336,13 @@ export default function DashboardPage() {
           className="mb-8"
         >
           <div className="flex items-center gap-2 mb-1">
-            <Zap size={14} className="text-[#111] dark:text-[#ededed]" />
-            <span className="text-xs font-semibold text-[#111] dark:text-[#ededed] uppercase tracking-widest">Dashboard</span>
+            <Zap size={14} className="text-primary" />
+            <span className="text-xs font-semibold text-primary uppercase tracking-widest">Dashboard</span>
           </div>
-          <h1 className="text-2xl font-semibold text-[#111] dark:text-[#ededed] mb-1">
+          <h1 className="text-2xl font-semibold text-foreground mb-1">
             {greeting}, {firstName}
           </h1>
-          <p className="text-sm text-[#666] dark:text-[#a1a1aa]">
+          <p className="text-sm text-muted-foreground">
             {loading ? "Loading your data…" : `${sessions.length} sessions · ${totalIssues} issues · ${totalPoints} story points`}
           </p>
         </motion.header>
@@ -389,8 +385,8 @@ export default function DashboardPage() {
             background={
               <div className="absolute inset-0 flex items-center justify-center">
                 <AnimatedCounter value={totalIssues} />
-                <div className="absolute w-32 h-32 rounded-full border border-gray-200 dark:border-[#333]" />
-                <div className="absolute w-48 h-48 rounded-full border border-gray-100 dark:border-[#222]" />
+                <div className="absolute w-32 h-32 rounded-full border border-border" />
+                <div className="absolute w-48 h-48 rounded-full border border-border/50" />
               </div>
             }
           />

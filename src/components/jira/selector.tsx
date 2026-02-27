@@ -3,6 +3,9 @@
 import { useMemo, useState, useEffect } from "react";
 // Removed unused: FiLayers, FiCalendar, FiFileText, FiChevronLeft
 import { FiSearch, FiChevronRight } from "react-icons/fi";
+import { Table } from "@/components/application/table/table";
+import { Badge } from "@/components/base/badges/badges";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { type JiraBoard, type JiraSprint, type JiraIssue, getBoardData, getSprints, getIssuesBySprint } from "@/services/jira";
 
 type Step = "boards" | "sprints" | "issues";
@@ -73,15 +76,7 @@ export const JiraMultiSelector = ({ onFinalSelection }: JiraMultiSelectorProps) 
         });
     }, [step, boards, sprints, issues, searchQuery]);
 
-    const toggleSelection = (id: string) => {
-        const updateState = step === "boards" ? setSelectedBoardIds : step === "sprints" ? setSelectedSprintIds : setSelectedIssueIds;
-        updateState(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    };
+ 
 
     const getSelectedSet = () => step === "boards" ? selectedBoardIds : step === "sprints" ? selectedSprintIds : selectedIssueIds;
 
@@ -135,49 +130,81 @@ export const JiraMultiSelector = ({ onFinalSelection }: JiraMultiSelectorProps) 
             </div>
 
             {/* Clean Table List */}
-            <div className="flex-1 overflow-y-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 dark:bg-[#22272b] border-b border-gray-200 dark:border-[#2c333a] sticky top-0 text-gray-600 dark:text-[#9fadbc]">
-                        <tr>
-                            <th className="px-4 py-2 w-12 text-center"></th>
-                            <th className="px-4 py-2 font-semibold">Key / ID</th>
-                            <th className="px-4 py-2 font-semibold w-full">Name / Summary</th>
-                            <th className="px-4 py-2 font-semibold">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredItems.map((item: JiraBoard | JiraSprint | JiraIssue) => {
-                            const isSelected = getSelectedSet().has(item.id);
-                            return (
-                                <tr 
-                                    key={item.id} 
-                                    onClick={() => toggleSelection(item.id)}
-                                    className={`border-b border-gray-100 dark:border-[#2c333a]/50 cursor-pointer transition-colors ${isSelected ? "bg-[#e9f2ff] dark:bg-[#0052cc]/10" : "hover:bg-gray-50 dark:hover:bg-[#22272b]"}`}
-                                >
-                                    <td className="px-4 py-3 text-center">
-                                        <input type="checkbox" checked={isSelected} readOnly className="cursor-pointer" />
-                                    </td>
-                                    <td className="px-4 py-3 font-medium text-[#0052cc] dark:text-[#4c9aff]">
+            <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111214]">
+                <Table 
+                    aria-label="Jira Items"
+                    selectionMode="multiple"
+                    selectedKeys={getSelectedSet()}
+                    onSelectionChange={(keys) => {
+                        const updateState = step === "boards" ? setSelectedBoardIds : step === "sprints" ? setSelectedSprintIds : setSelectedIssueIds;
+                        if (keys === "all") {
+                            updateState(new Set(filteredItems.map(i => i.id)));
+                        } else {
+                            updateState(new Set(keys as Iterable<string>));
+                        }
+                    }}
+                    className="w-full text-left"
+                >
+                    <Table.Header>
+                        <Table.Head id="key" isRowHeader>Key / ID</Table.Head>
+                        <Table.Head id="summary">Name / Summary</Table.Head>
+                        {step === "issues" && <Table.Head id="priority">Priority</Table.Head>}
+                        <Table.Head id="status">Status</Table.Head>
+                        {step === "issues" && <Table.Head id="assignee">Assignee</Table.Head>}
+                    </Table.Header>
+                    <Table.Body items={filteredItems}>
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {(item: any) => (
+                            <Table.Row id={item.id}>
+                                <Table.Cell>
+                                    <span className="font-medium text-[#0052cc] dark:text-[#4c9aff]">
                                         {('key' in item && item.key) || `#${item.id}`}
-                                    </td>
-                                    <td className="px-4 py-3 text-[#172b4d] dark:text-[#b6c2cf]">
+                                    </span>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <span className="text-[#172b4d] dark:text-[#b6c2cf] font-medium">
                                         {('name' in item && item.name) || ('summary' in item && item.summary)}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span className="bg-gray-100 dark:bg-[#2c333a] text-gray-700 dark:text-[#b6c2cf] text-xs font-semibold px-2 py-0.5 rounded uppercase">
-                                            {('type' in item && item.type) || ('state' in item && item.state) || ('status' in item && item.status)}
-                                        </span>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        {filteredItems.length === 0 && !loading && (
-                            <tr>
-                                <td colSpan={4} className="px-4 py-8 text-center text-gray-500">No items found.</td>
-                            </tr>
+                                    </span>
+                                </Table.Cell>
+                                {step === "issues" && (
+                                    <Table.Cell>
+                                        <div className="flex items-center gap-2">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            {item.priorityIconUrl && <img src={item.priorityIconUrl} alt="" className="w-4 h-4" />}
+                                            <span className="text-gray-600 dark:text-gray-400">{item.priority || "Normal"}</span>
+                                        </div>
+                                    </Table.Cell>
+                                )}
+                                <Table.Cell>
+                                    <Badge color="gray" size="sm" className="uppercase font-semibold tracking-wider">
+                                        {('type' in item && item.type) || ('state' in item && item.state) || ('status' in item && item.status)}
+                                    </Badge>
+                                </Table.Cell>
+                                {step === "issues" && (
+                                    <Table.Cell>
+                                        {item.assignee ? (
+                                            <div className="flex items-center gap-2">
+                                                <Avatar className="h-6 w-6">
+                                                    {item.assigneeAvatarUrl && <AvatarImage src={item.assigneeAvatarUrl} />}
+                                                    <AvatarFallback>{item.assignee.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-gray-700 dark:text-gray-300">{item.assignee}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400 italic">Unassigned</span>
+                                        )}
+                                    </Table.Cell>
+                                )}
+                            </Table.Row>
                         )}
-                    </tbody>
-                </table>
+                    </Table.Body>
+                </Table>
+                
+                {filteredItems.length === 0 && !loading && (
+                    <div className="p-8 text-center text-gray-500">
+                        No items found.
+                    </div>
+                )}
             </div>
         </div>
     );

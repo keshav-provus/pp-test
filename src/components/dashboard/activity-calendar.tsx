@@ -162,6 +162,11 @@ export function ActivityCalendar({
 }) {
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Merge real data on top of mock data (real data takes priority)
   const mergedData = useMemo(() => {
@@ -205,6 +210,14 @@ export function ActivityCalendar({
   }, [mergedData]);
 
   const totalSessions = Object.values(mergedData).reduce((a, b) => a + b, 0);
+
+  if (!isMounted) {
+    return (
+      <div className={cn("relative h-[200px] flex items-center justify-center text-[#888] dark:text-[#666]", className)}>
+        <span className="text-xs">Loading activity...</span>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("relative", className)}>

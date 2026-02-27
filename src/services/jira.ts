@@ -23,6 +23,12 @@ export interface JiraIssue {
   status: string;
   statusCategory: string;
   source?: string;
+  priority?: string;
+  priorityIconUrl?: string;
+  assignee?: string | null;
+  assigneeAvatarUrl?: string | null;
+  reporter?: string | null;
+  reporterAvatarUrl?: string | null;
 }
 
 // NEW: Extended interface for detailed views
@@ -128,6 +134,18 @@ interface JiraApiIssueFields {
       name: string;
     };
   };
+  priority?: {
+    name: string;
+    iconUrl?: string;
+  };
+  assignee?: {
+    displayName: string;
+    avatarUrls?: { "48x48": string; "32x32"?: string; "24x24"?: string; "16x16"?: string };
+  };
+  reporter?: {
+    displayName: string;
+    avatarUrls?: { "48x48": string; "32x32"?: string; "24x24"?: string; "16x16"?: string };
+  };
 }
 
 interface JiraApiIssue {
@@ -142,6 +160,12 @@ const mapIssue = (issue: JiraApiIssue): JiraIssue => ({
   summary: issue.fields.summary,
   status: issue.fields.status.name,
   statusCategory: issue.fields.status.statusCategory.name,
+  priority: issue.fields.priority?.name,
+  priorityIconUrl: issue.fields.priority?.iconUrl,
+  assignee: issue.fields.assignee?.displayName,
+  assigneeAvatarUrl: issue.fields.assignee?.avatarUrls?.["48x48"] || issue.fields.assignee?.avatarUrls?.["32x32"],
+  reporter: issue.fields.reporter?.displayName,
+  reporterAvatarUrl: issue.fields.reporter?.avatarUrls?.["48x48"] || issue.fields.reporter?.avatarUrls?.["32x32"],
 });
 
 export async function getIssuesBySprint(
