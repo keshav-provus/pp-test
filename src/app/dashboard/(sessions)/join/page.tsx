@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, User, KeyRound, LogIn, Sparkles } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
@@ -10,7 +10,14 @@ import { AppDock } from "@/components/dashboard/app-dock";
 function JoinSessionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
+
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (authStatus === "unauthenticated") {
+      router.replace("/login");
+    }
+  }, [authStatus, router]);
 
   // Pre-fill session code from invite link ?code= param
   const [sessionId, setSessionId] = useState(searchParams.get("code")?.toUpperCase() || "");

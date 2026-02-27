@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FileEdit, Share2, ArrowLeft, Plus, Trash2, Play, ArrowRight, Layers, X, Sparkles } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
@@ -76,7 +76,14 @@ type CreationMode = "menu" | "jira" | "custom";
 
 export default function CreateSessionPage() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
+
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (authStatus === "unauthenticated") {
+      router.replace("/login");
+    }
+  }, [authStatus, router]);
   
   const [customName, setCustomName] = useState<string | null>(null);
   const [mode, setMode] = useState<CreationMode>("menu");
@@ -133,7 +140,7 @@ export default function CreateSessionPage() {
   };
 
   const navbarProps = {
-    firstName: session?.user?.name?.split(" ")[0] || "Guest",
+    firstName: session?.user?.name?.split(" ")[0] || "",
     email: session?.user?.email || "",
     onLogout: () => signOut({ callbackUrl: "/login" }),
   };

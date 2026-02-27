@@ -450,13 +450,20 @@ function formatRelativeDate(dateStr: string): string {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const [showIssuesModal, setShowIssuesModal] = useState(false);
   const [showSessionsModal, setShowSessionsModal] = useState(false);
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const firstName = session?.user?.name?.split(" ")[0] || "Guest";
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (authStatus === "unauthenticated") {
+      router.replace("/login");
+    }
+  }, [authStatus, router]);
+
+  const firstName = session?.user?.name?.split(" ")[0] || "";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -513,6 +520,15 @@ export default function DashboardPage() {
     });
     return counts;
   }, [sessions]);
+
+  // Show loading while auth is being determined
+  if (authStatus === "loading" || authStatus === "unauthenticated") {
+    return (
+      <div className="min-h-screen page-bg flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen page-bg text-foreground font-sans transition-colors">
