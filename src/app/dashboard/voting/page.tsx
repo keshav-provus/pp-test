@@ -264,7 +264,10 @@ function PokerSessionContent() {
   }, [isMounted, sessionId, role, authStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When host has both joined the channel AND has issues loaded, broadcast issue 0
-  // so any participants already in the room receive the initial active issue
+  // so any participants already in the room receive the initial active issue.
+  // We ALSO broadcast the full issues list here because the mount-time
+  // broadcastIssuesList call fires before the Supabase channel is connected,
+  // so participants never receive the backlog otherwise.
   const didInitBroadcast = useRef(false);
   useEffect(() => {
     if (!isHost || !isMounted || issues.length === 0 || didInitBroadcast.current) return;
@@ -272,6 +275,12 @@ function PokerSessionContent() {
     const first = issues[0];
     // Small delay to ensure channel subscription is ready
     const t = setTimeout(() => {
+      // Broadcast the full backlog so participants can see the table
+      broadcastIssuesList(issues.map(i => ({
+        id: i.id, key: i.key, summary: i.summary,
+        status: i.status, statusCategory: i.statusCategory,
+      })));
+      // Broadcast the active issue
       broadcastActiveIssue(0, {
         id: first.id, key: first.key,
         summary: first.summary, status: first.status,
