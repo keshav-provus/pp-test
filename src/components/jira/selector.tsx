@@ -2,8 +2,8 @@
 
 import { useMemo, useState, useEffect } from "react";
 // Removed unused: FiLayers, FiCalendar, FiFileText, FiChevronLeft
-import { FiSearch, FiChevronRight } from "react-icons/fi";
-import { Table } from "@/components/application/table/table";
+import { FiSearch } from "react-icons/fi";
+import { Table, TableCard } from "@/components/application/table/table";
 import { Badge } from "@/components/base/badges/badges";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { type JiraBoard, type JiraSprint, type JiraIssue, getBoardData, getSprints, getIssuesBySprint } from "@/services/jira";
@@ -80,57 +80,38 @@ export const JiraMultiSelector = ({ onFinalSelection }: JiraMultiSelectorProps) 
 
     const getSelectedSet = () => step === "boards" ? selectedBoardIds : step === "sprints" ? selectedSprintIds : selectedIssueIds;
 
-    const steps = [
-        { id: "boards", label: "Select Boards" },
-        { id: "sprints", label: "Select Sprints" },
-        { id: "issues", label: "Select Issues" },
-    ];
-
     return (
-        // FIX: Swapped min-h-[500px] for canonical min-h-125
-        <div className="bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] rounded-md shadow-sm flex flex-col min-h-125">
-            {/* ... rest of the render tree remains exactly the same ... */}
-            
-            {/* Header / Breadcrumbs */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-[#2c333a] bg-[#f4f5f7] dark:bg-[#111214]">
-                <div className="flex items-center gap-2">
-                    {steps.map((s, idx) => (
-                        <div key={s.id} className="flex items-center gap-2">
-                            <span className={`text-sm font-semibold ${step === s.id ? "text-[#0052cc] dark:text-[#4c9aff]" : "text-gray-500 dark:text-[#8c9bab]"}`}>
-                                {s.label}
-                            </span>
-                            {idx < steps.length - 1 && <FiChevronRight className="text-gray-400" />}
+        <TableCard.Root className="flex flex-col min-h-125 h-full">
+            <TableCard.Header
+                title={
+                    step === "boards" ? "Select Boards" :
+                    step === "sprints" ? "Select Sprints" : "Select Issues"
+                }
+                badge={`${getSelectedSet().size} selected`}
+                contentTrailing={
+                    <div className="flex items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
+                        <div className="relative w-full sm:w-64">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
+                            <input 
+                                type="text"
+                                placeholder="Search..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full h-9 pl-9 pr-3 bg-secondary border border-secondary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-focus-ring transition-colors"
+                            />
                         </div>
-                    ))}
-                </div>
-            </div>
+                        <button 
+                            onClick={step === "boards" ? proceedToSprints : step === "sprints" ? proceedToIssues : () => onFinalSelection(issues.filter(i => selectedIssueIds.has(i.id)))}
+                            disabled={loading || getSelectedSet().size === 0}
+                            className="bg-primary-solid hover:bg-primary-solid_hover text-fg-white px-4 h-9 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors shrink-0"
+                        >
+                            {loading ? "Loading..." : step === "issues" ? "Import" : "Next Step"}
+                        </button>
+                    </div>
+                }
+            />
 
-            {/* Toolbar */}
-            <div className="p-4 flex items-center justify-between border-b border-gray-200 dark:border-[#2c333a]">
-                <div className="relative w-72">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input 
-                        type="text"
-                        placeholder="Search..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full h-9 pl-9 pr-3 bg-gray-50 dark:bg-[#22272b] border border-gray-200 dark:border-[#8c9bab]/30 rounded text-sm focus:outline-none focus:border-[#0052cc] transition-colors"
-                    />
-                </div>
-                <div className="flex items-center gap-3">
-                    <span className="text-sm text-gray-500">{getSelectedSet().size} selected</span>
-                    <button 
-                        onClick={step === "boards" ? proceedToSprints : step === "sprints" ? proceedToIssues : () => onFinalSelection(issues.filter(i => selectedIssueIds.has(i.id)))}
-                        disabled={loading || getSelectedSet().size === 0}
-                        className="bg-[#0052cc] hover:bg-[#0047b3] text-white px-4 h-9 rounded text-sm font-medium disabled:opacity-50 transition-colors"
-                    >
-                        {loading ? "Loading..." : step === "issues" ? "Import to Session" : "Next Step"}
-                    </button>
-                </div>
-            </div>
-
-            {/* Clean Table List */}
-            <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111214]">
+            <div className="flex-1 overflow-y-auto">
                 <Table 
                     aria-label="Jira Items"
                     selectionMode="multiple"
@@ -146,23 +127,24 @@ export const JiraMultiSelector = ({ onFinalSelection }: JiraMultiSelectorProps) 
                     className="w-full text-left"
                 >
                     <Table.Header>
-                        <Table.Head id="key" isRowHeader>Key / ID</Table.Head>
-                        <Table.Head id="summary">Name / Summary</Table.Head>
-                        {step === "issues" && <Table.Head id="priority">Priority</Table.Head>}
-                        <Table.Head id="status">Status</Table.Head>
-                        {step === "issues" && <Table.Head id="assignee">Assignee</Table.Head>}
+                        <Table.Head id="key" label="Key / ID" isRowHeader className="w-1/4" />
+                        <Table.Head id="summary" label="Name / Summary" />
+                        {step === "issues" && <Table.Head id="priority" label="Priority" />}
+                        <Table.Head id="status" label="Status" />
+                        {step === "issues" && <Table.Head id="assignee" label="Assignee" />}
                     </Table.Header>
+                    
                     <Table.Body items={filteredItems}>
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         {(item: any) => (
                             <Table.Row id={item.id}>
                                 <Table.Cell>
-                                    <span className="font-medium text-[#0052cc] dark:text-[#4c9aff]">
+                                    <span className="font-medium text-brand">
                                         {('key' in item && item.key) || `#${item.id}`}
                                     </span>
                                 </Table.Cell>
                                 <Table.Cell>
-                                    <span className="text-[#172b4d] dark:text-[#b6c2cf] font-medium">
+                                    <span className="font-medium text-primary">
                                         {('name' in item && item.name) || ('summary' in item && item.summary)}
                                     </span>
                                 </Table.Cell>
@@ -171,27 +153,27 @@ export const JiraMultiSelector = ({ onFinalSelection }: JiraMultiSelectorProps) 
                                         <div className="flex items-center gap-2">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
                                             {item.priorityIconUrl && <img src={item.priorityIconUrl} alt="" className="w-4 h-4" />}
-                                            <span className="text-gray-600 dark:text-gray-400">{item.priority || "Normal"}</span>
+                                            <span className="text-secondary">{item.priority || "Normal"}</span>
                                         </div>
                                     </Table.Cell>
                                 )}
                                 <Table.Cell>
-                                    <Badge color="gray" size="sm" className="uppercase font-semibold tracking-wider">
+                                    <Badge color="gray" size="sm">
                                         {('type' in item && item.type) || ('state' in item && item.state) || ('status' in item && item.status)}
                                     </Badge>
                                 </Table.Cell>
                                 {step === "issues" && (
                                     <Table.Cell>
                                         {item.assignee ? (
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-3">
                                                 <Avatar className="h-6 w-6">
                                                     {item.assigneeAvatarUrl && <AvatarImage src={item.assigneeAvatarUrl} />}
                                                     <AvatarFallback>{item.assignee.charAt(0)}</AvatarFallback>
                                                 </Avatar>
-                                                <span className="text-gray-700 dark:text-gray-300">{item.assignee}</span>
+                                                <span className="text-sm font-medium text-primary">{item.assignee}</span>
                                             </div>
                                         ) : (
-                                            <span className="text-gray-400 italic">Unassigned</span>
+                                            <span className="text-sm text-tertiary italic">Unassigned</span>
                                         )}
                                     </Table.Cell>
                                 )}
@@ -201,11 +183,11 @@ export const JiraMultiSelector = ({ onFinalSelection }: JiraMultiSelectorProps) 
                 </Table>
                 
                 {filteredItems.length === 0 && !loading && (
-                    <div className="p-8 text-center text-gray-500">
+                    <div className="p-8 text-center text-tertiary">
                         No items found.
                     </div>
                 )}
             </div>
-        </div>
+        </TableCard.Root>
     );
 };
