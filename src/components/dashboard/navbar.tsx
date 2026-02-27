@@ -12,6 +12,7 @@ interface NavbarProps {
 
 export const Navbar = ({ firstName, email, onLogout }: NavbarProps) => {
   const { theme, setTheme } = useTheme();
+  const isClient = typeof window !== "undefined";
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white dark:bg-[#1d2125] border-b border-gray-200 dark:border-[#2c333a] transition-colors">
@@ -29,12 +30,22 @@ export const Navbar = ({ firstName, email, onLogout }: NavbarProps) => {
 
         {/* User Actions & Theme Toggle */}
         <div className="flex items-center gap-3">
+          {/* FIX: Added suppressHydrationWarning. 
+            This tells React that the mismatch between server (no icon) 
+            and client (Sun/Moon icon) is expected and should not trigger an error.
+          */}
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="p-1.5 text-gray-500 hover:bg-gray-100 dark:text-[#9fadbc] dark:hover:bg-[#a6c5e2]/10 rounded transition-colors"
+            className="p-1.5 text-gray-500 hover:bg-gray-100 dark:text-[#9fadbc] dark:hover:bg-[#a6c5e2]/10 rounded transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center"
             title="Toggle Theme"
+            suppressHydrationWarning
           >
-            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            {isClient ? (
+              theme === "dark" ? <Sun size={18} /> : <Moon size={18} />
+            ) : (
+              /* A placeholder that matches the size but contains no specific SVG to avoid mismatch */
+              <span className="w-[18px] h-[18px]" />
+            )}
           </button>
 
           <div className="h-5 w-px bg-gray-300 dark:bg-[#2c333a] mx-1" />
@@ -44,7 +55,6 @@ export const Navbar = ({ firstName, email, onLogout }: NavbarProps) => {
               <span className="text-sm font-medium text-[#172b4d] dark:text-[#b6c2cf] leading-tight hidden sm:block">
                 {firstName}
               </span>
-              {/* Fix: Utilized the unused email prop */}
               {email && (
                 <span className="text-[10px] text-gray-500 dark:text-[#8c9bab] hidden sm:block">
                   {email}

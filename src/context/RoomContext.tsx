@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import supabase from "@/lib/supabaseClient";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -10,17 +10,49 @@ export type Participant = {
   isHost: boolean;
 };
 
+export type SyncedIssue = {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  statusCategory: string;
+};
+
+type TimerState = {
+  duration: number;      // seconds, 0 = no timer
+  startedAt: number | null; // epoch ms when timer started, null = not running
+};
+
+// Full snapshot the host sends to late-joining participants
+type RoomSnapshot = {
+  activeIssue: SyncedIssue | null;
+  currentIssueIndex: number;
+  votes: Record<string, number | null>;
+  revealed: boolean;
+  timer: TimerState;
+};
+
 type RoomContextType = {
   participants: Participant[];
   votes: Record<string, number | null>;
   revealed: boolean;
   sessionEnded: boolean;
+  currentIssueIndex: number;
+  /** The single source of truth for the active issue — broadcast by host to ALL clients */
+  activeIssue: SyncedIssue | null;
+  timer: TimerState;
+  timerRemaining: number; // live countdown in seconds
   joinRoom: (sessionId: string, participantName: string, isHost: boolean) => void;
   castVote: (participantName: string, vote: number | null) => Promise<void>;
   revealVotes: () => Promise<void>;
   resetVotes: () => Promise<void>;
   endSession: () => Promise<void>;
   leaveSession: (participantName: string) => Promise<void>;
+  /** Host calls this whenever the active issue changes — broadcasts index + full issue data */
+  broadcastActiveIssue: (index: number, issue: SyncedIssue) => Promise<void>;
+  setTimer: (duration: number) => Promise<void>;
+  startTimer: () => Promise<void>;
+  stopTimer: () => Promise<void>;
 };
 
 const RoomContext = createContext<RoomContextType | null>(null);
@@ -30,18 +62,61 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
   const [votes, setVotes] = useState<Record<string, number | null>>({});
   const [revealed, setRevealed] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [currentIssueIndex, setCurrentIssueIndex] = useState(0);
+  const [activeIssue, setActiveIssue] = useState<SyncedIssue | null>(null);
+  const [timer, setTimerState] = useState<TimerState>({ duration: 0, startedAt: null });
+  const [timerRemaining, setTimerRemaining] = useState(0);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
-  // 🔑 VERY IMPORTANT: track joined session
   const sessionRef = useRef<string | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const joinRoom = (roomId: string, participantName: string, isHost: boolean) => {
-    // 🛑 STOP if already joined this session
-    if (sessionRef.current === roomId && channel) return;
+  // Always-fresh snapshot ref so host can respond to sync requests without stale closure issues
+  const snapshotRef = useRef<RoomSnapshot>({
+    activeIssue: null,
+    currentIssueIndex: 0,
+    votes: {},
+    revealed: false,
+    timer: { duration: 0, startedAt: null },
+  });
 
-    // Cleanup old channel
-    if (channel) {
-      supabase.removeChannel(channel);
+  // Keep snapshot in sync with state
+  useEffect(() => {
+    snapshotRef.current = { activeIssue, currentIssueIndex, votes, revealed, timer };
+  }, [activeIssue, currentIssueIndex, votes, revealed, timer]);
+
+  // Live countdown tick
+  useEffect(() => {
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+
+    if (timer.startedAt && timer.duration > 0) {
+      const tick = () => {
+        const elapsed = Math.floor((Date.now() - timer.startedAt!) / 1000);
+        const remaining = Math.max(0, timer.duration - elapsed);
+        setTimerRemaining(remaining);
+
+        if (remaining === 0) {
+          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        }
+      };
+      tick();
+      timerIntervalRef.current = setInterval(tick, 250);
+    } else {
+      // Instead of calling setState synchronously, use a microtask to avoid cascading renders
+      Promise.resolve().then(() => setTimerRemaining(timer.duration));
+    }
+
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    };
+  }, [timer]);
+
+  const joinRoom = useCallback((roomId: string, participantName: string, isHost: boolean) => {
+    if (sessionRef.current === roomId && channelRef.current) return;
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
     }
 
     sessionRef.current = roomId;
@@ -50,185 +125,209 @@ export function RoomProvider({ children }: { children: React.ReactNode }) {
       config: { broadcast: { self: true } },
     });
 
-    // Listen for presence updates (participants list)
-    newChannel.on("presence", { event: "sync" }, () => {
-      const state = newChannel.presenceState();
-      const participantList: Participant[] = [];
-      
-      // FIX: Use type assertion to handle Supabase's generic presence state
-      Object.entries(state).forEach(([, presences]) => {
-        const typedPresences = presences as unknown as Array<{ 
-          presence_ref: string; 
-          participant: Participant 
-        }>;
-
-        typedPresences.forEach((presence) => {
-          if (presence.participant) {
-            participantList.push(presence.participant);
+    newChannel
+      .on("presence", { event: "sync" }, () => {
+        const state = newChannel.presenceState();
+        const participantList: Participant[] = [];
+        Object.entries(state).forEach(([, presences]) => {
+          const typed = presences as unknown as Array<{ participant: Participant }>;
+          typed.forEach((p) => { if (p.participant) participantList.push(p.participant); });
+        });
+        setParticipants(participantList);
+      })
+      .on("presence", { event: "join" }, ({ newPresences }) => {
+        const participant = (newPresences[0] as unknown as { participant: Participant })?.participant;
+        if (participant) {
+          setParticipants((prev) => {
+            const exists = prev.some((p) => p.name === participant.name);
+            return exists ? prev : [...prev, participant];
+          });
+          // Host proactively pushes full state whenever a new participant joins
+          if (isHost && participant.name !== participantName) {
+            const snap = snapshotRef.current;
+            newChannel.send({
+              type: "broadcast",
+              event: "state_sync",
+              payload: { target: participant.name, snapshot: snap },
+            });
           }
+        }
+      })
+      .on("presence", { event: "leave" }, ({ leftPresences }) => {
+        const participant = (leftPresences[0] as unknown as { participant: Participant })?.participant;
+        if (participant) {
+          setParticipants((prev) => prev.filter((p) => p.name !== participant.name));
+        }
+      })
+      .on("broadcast", { event: "votes_updated" }, (payload) => {
+        setVotes(payload.payload as Record<string, number | null>);
+      })
+      .on("broadcast", { event: "votes_revealed" }, () => {
+        setRevealed(true);
+      })
+      .on("broadcast", { event: "votes_reset" }, () => {
+        setVotes({});
+        setRevealed(false);
+      })
+      // issue_changed now always carries { index, issue } — store both
+      .on("broadcast", { event: "issue_changed" }, (payload) => {
+        const { index, issue } = payload.payload as { index: number; issue: SyncedIssue };
+        setCurrentIssueIndex(index);
+        setActiveIssue(issue);
+        setVotes({});
+        setRevealed(false);
+        setTimerState((prev) => ({ ...prev, startedAt: null }));
+      })
+      // Participant asks host for full current state (sent right after subscribing)
+      .on("broadcast", { event: "request_sync" }, (payload) => {
+        if (!isHost) return;
+        const { requester } = payload.payload as { requester: string };
+        const snap = snapshotRef.current;
+        newChannel.send({
+          type: "broadcast",
+          event: "state_sync",
+          payload: { target: requester, snapshot: snap },
         });
+      })
+      // Host → specific participant: apply full snapshot
+      .on("broadcast", { event: "state_sync" }, (payload) => {
+        const { target, snapshot } = payload.payload as { target: string; snapshot: RoomSnapshot };
+        if (target !== participantName) return; // only meant for me
+        setCurrentIssueIndex(snapshot.currentIssueIndex);
+        setActiveIssue(snapshot.activeIssue);
+        setVotes(snapshot.votes);
+        setRevealed(snapshot.revealed);
+        setTimerState(snapshot.timer);
+      })
+      .on("broadcast", { event: "timer_updated" }, (payload) => {
+        setTimerState(payload.payload as TimerState);
+      })
+      .on("broadcast", { event: "session_ended" }, () => {
+        setParticipants([]);
+        setVotes({});
+        setRevealed(false);
+        setSessionEnded(true);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await newChannel.track({
+            participant: { name: participantName, isHost },
+            online_at: new Date().toISOString(),
+          });
+          // Non-host participants request the current state immediately after connecting
+          if (!isHost) {
+            await newChannel.send({
+              type: "broadcast",
+              event: "request_sync",
+              payload: { requester: participantName },
+            });
+          }
+        }
       });
-      
-      setParticipants(participantList);
-    })
-    .on("presence", { event: "join" }, ({ newPresences }) => {
-      const participant = newPresences[0]?.participant;
-      if (participant) {
-        setParticipants((prev) => {
-          const exists = prev.some((p) => p.name === participant.name);
-          if (exists) return prev;
-          return [...prev, participant];
-        });
-      }
-    })
-    .on("presence", { event: "leave" }, ({ leftPresences }) => {
-      const participant = leftPresences[0]?.participant;
-      if (participant) {
-        setParticipants((prev) => prev.filter((p) => p.name !== participant.name));
-      }
-    })
-    .on("broadcast", { event: "votes_updated" }, (payload) => {
-      setVotes(payload.payload);
-    })
-    .on("broadcast", { event: "votes_revealed" }, (payload) => {
-      setRevealed(payload.payload);
-    })
-    .on("broadcast", { event: "votes_reset" }, () => {
-      setVotes({});
-      setRevealed(false);
-    })
-    .on("broadcast", { event: "session_ended" }, () => {
-      setParticipants([]);
-      setVotes({});
-      setRevealed(false);
-      setSessionEnded(true);
-    })
-    .subscribe(async (status) => {
-      if (status === "SUBSCRIBED") {
-        // Track current participant in presence
-        await newChannel.track({
-          participant: { name: participantName, isHost },
-          online_at: new Date().toISOString(),
-        });
-      }
-    });
 
+    channelRef.current = newChannel;
     setChannel(newChannel);
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const castVote = async (participantName: string, vote: number | null) => {
-    if (!channel || !sessionRef.current) return;
+  const castVote = useCallback(async (participantName: string, vote: number | null) => {
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
 
-    setVotes((prev) => ({
-      ...prev,
-      [participantName]: vote,
-    }));
-
-    // Broadcast updated votes
-    const updatedVotes = { ...votes, [participantName]: vote };
-    await channel.send({
-      type: "broadcast",
-      event: "votes_updated",
-      payload: updatedVotes,
+    setVotes((prev) => {
+      const updated = { ...prev, [participantName]: vote };
+      // Fire-and-forget broadcast with the latest votes
+      ch.send({ type: "broadcast", event: "votes_updated", payload: updated });
+      return updated;
     });
-  };
+  }, []);
 
-  const revealVotes = async () => {
-    if (!channel || !sessionRef.current) return;
+  const revealVotes = useCallback(async () => {
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
+    await ch.send({ type: "broadcast", event: "votes_revealed", payload: null });
+  }, []);
 
-    setRevealed(true);
+  const resetVotes = useCallback(async () => {
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
+    await ch.send({ type: "broadcast", event: "votes_reset", payload: null });
+    // Stop timer too
+    const newTimer: TimerState = { duration: timer.duration, startedAt: null };
+    await ch.send({ type: "broadcast", event: "timer_updated", payload: newTimer });
+  }, [timer.duration]);
 
-    // Broadcast reveal event
-    await channel.send({
+  const broadcastActiveIssue = useCallback(async (index: number, issue: SyncedIssue) => {
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
+    await ch.send({
       type: "broadcast",
-      event: "votes_revealed",
-      payload: true,
+      event: "issue_changed",
+      payload: { index, issue },
     });
-  };
+  }, []);
 
-  const resetVotes = async () => {
-    if (!channel || !sessionRef.current) return;
+  const setTimer = useCallback(async (duration: number) => {
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
+    const newTimer: TimerState = { duration, startedAt: null };
+    await ch.send({ type: "broadcast", event: "timer_updated", payload: newTimer });
+  }, []);
 
-    setVotes({});
-    setRevealed(false);
+  const startTimer = useCallback(async () => {
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
+    const newTimer: TimerState = { duration: timer.duration, startedAt: Date.now() };
+    await ch.send({ type: "broadcast", event: "timer_updated", payload: newTimer });
+  }, [timer.duration]);
 
-    // Broadcast reset event
-    await channel.send({
-      type: "broadcast",
-      event: "votes_reset",
-      payload: null,
-    });
-  };
+  const stopTimer = useCallback(async () => {
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
+    const newTimer: TimerState = { duration: timer.duration, startedAt: null };
+    await ch.send({ type: "broadcast", event: "timer_updated", payload: newTimer });
+  }, [timer.duration]);
 
-  const endSession = async () => {
-    if (!channel || !sessionRef.current) return;
-
-    // Clear local state
+  const endSession = useCallback(async () => {
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
     setParticipants([]);
     setVotes({});
     setRevealed(false);
-
-    // Broadcast session ended event
-    await channel.send({
-      type: "broadcast",
-      event: "session_ended",
-      payload: null,
-    });
-
-    // Cleanup channel
-    supabase.removeChannel(channel);
+    await ch.send({ type: "broadcast", event: "session_ended", payload: null });
+    supabase.removeChannel(ch);
     sessionRef.current = null;
-  };
+  }, []);
 
-  const leaveSession = async (participantName: string) => {
-    if (!channel || !sessionRef.current) return;
-
-    // Untrack from presence (automatically removes participant from all clients)
-    await channel.untrack();
-
-    // Update votes
+  const leaveSession = useCallback(async (participantName: string) => {
+    const ch = channelRef.current;
+    if (!ch || !sessionRef.current) return;
+    await ch.untrack();
     setVotes((prev) => {
       const updated = { ...prev };
       delete updated[participantName];
+      ch.send({ type: "broadcast", event: "votes_updated", payload: updated });
       return updated;
     });
-
-    // Broadcast updated votes
-    const updatedVotes = { ...votes };
-    delete updatedVotes[participantName];
-    await channel.send({
-      type: "broadcast",
-      event: "votes_updated",
-      payload: updatedVotes,
-    });
-
-    // Cleanup channel
-    supabase.removeChannel(channel);
+    supabase.removeChannel(ch);
     sessionRef.current = null;
-  };
+  }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, [channel]);
+  }, []);
 
   return (
-    <RoomContext.Provider
-      value={{
-        participants,
-        votes,
-        revealed,
-        sessionEnded,
-        joinRoom,
-        castVote,
-        revealVotes,
-        resetVotes,
-        endSession,
-        leaveSession,
-      }}
-    >
+    <RoomContext.Provider value={{
+      participants, votes, revealed, sessionEnded,
+      currentIssueIndex, activeIssue, timer, timerRemaining,
+      joinRoom, castVote, revealVotes, resetVotes,
+      endSession, leaveSession,
+      broadcastActiveIssue,
+      setTimer, startTimer, stopTimer,
+    }}>
       {children}
     </RoomContext.Provider>
   );

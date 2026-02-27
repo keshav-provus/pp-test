@@ -58,9 +58,9 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ profile }) {
-  //console.log("--- AUTH ATTEMPT ---");
+  console.log("--- AUTH ATTEMPT ---");
   const email = profile?.email?.toLowerCase();
-  //console.log("Attempting email:", email);
+  console.log("Attempting email:", email);
 
   if (!email) return "/auth/error?error=NoEmail";
   
@@ -68,14 +68,14 @@ export const authOptions: NextAuthOptions = {
     email.endsWith(`@${domain.toLowerCase()}`)
   );
 
-  //console.log("Domain Allowed?", isDomainAllowed);
+  console.log("Domain Allowed?", isDomainAllowed);
 
   if (!isDomainAllowed) {
-    //console.log("❌ ACCESS DENIED: Not a Provus email.");
+    console.log("❌ ACCESS DENIED: Not a Provus email.");
     return false; // Returning FALSE explicitly kills the session creation
   }
 
-  //console.log("✅ ACCESS GRANTED: Proceeding to Sync...");
+  console.log("✅ ACCESS GRANTED: Proceeding to Sync...");
   return true; 
 },
 
