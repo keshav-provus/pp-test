@@ -36,7 +36,7 @@ export function AppDock({ onLogout }: AppDockProps) {
   }
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100]">
+    <div className="sticky top-0 z-[100] flex justify-center py-3 bg-background/80 backdrop-blur-md border-b border-border">
       <TooltipProvider>
         <Dock direction="middle" className="bg-card/90 backdrop-blur-xl border border-border shadow-lg shadow-black/10 dark:shadow-black/40">
           <DockIcon>

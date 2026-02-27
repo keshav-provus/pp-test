@@ -85,7 +85,6 @@ export default function CreateSessionPage() {
     }
   }, [authStatus, router]);
   
-  const [customName, setCustomName] = useState<string | null>(null);
   const [mode, setMode] = useState<CreationMode>("menu");
   
   const [customIssues, setCustomIssues] = useState([{ id: 1, summary: "" }]);
@@ -97,7 +96,7 @@ export default function CreateSessionPage() {
   const [sessionName, setSessionName] = useState("");
   const [selectedSeries, setSelectedSeries] = useState<SeriesKey>("fibonacci");
 
-  const activeUsername = customName !== null ? customName : (session?.user?.name || "");
+  const activeUsername = session?.user?.name || "";
 
   const handleOpenConfig = (targetMode: "custom" | "jira") => {
     if (!activeUsername.trim()) return;
@@ -381,22 +380,10 @@ export default function CreateSessionPage() {
             <span className="text-[10px] font-semibold text-foreground uppercase tracking-widest">New Session</span>
           </div>
           <h1 className="text-xl font-semibold text-foreground mb-1">Create New Session</h1>
-          <p className="text-sm text-muted-foreground">Enter your display name and choose your story source.</p>
+          <p className="text-sm text-muted-foreground">Choose your story source to get started.</p>
         </div>
 
-        {/* Host name input */}
-        <div className="bg-card border border-border rounded-xl shadow-sm p-6 mb-8">
-          <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5 block">
-            Host Display Name
-          </label>
-          <Input
-            type="text"
-            placeholder="John Doe"
-            value={activeUsername}
-            onChange={(e) => setCustomName(e.target.value)}
-            className="h-11 bg-card border-border text-sm focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-colors rounded-xl"
-          />
-        </div>
+
 
         {/* Story source cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
