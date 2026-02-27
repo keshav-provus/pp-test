@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { FileEdit, Share2, ArrowLeft, Plus, Trash2, Play, ArrowRight, Layers, X, Sparkles } from "lucide-react";
+import { FileEdit, Share2, ArrowLeft, Plus, Trash2, Play, ArrowRight, Layers, X, Sparkles, ChevronDown } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 
 import { Input } from "@/components/ui/input";
@@ -190,54 +190,39 @@ export default function CreateSessionPage() {
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
               Estimation Scale
             </label>
-            <div className="grid gap-2">
-              {CARD_SERIES.map((series) => {
-                const isSelected = selectedSeries === series.key;
-                return (
-                  <button
-                    key={series.key}
-                    onClick={() => setSelectedSeries(series.key)}
-                    className={`relative flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all ${
-                      isSelected
-                        ? "border-primary bg-primary/5 shadow-sm"
-                        : "border-border bg-card hover:border-primary/50"
-                    }`}
-                  >
-                    {/* Radio indicator */}
-                    <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected
-                        ? "border-primary bg-primary"
-                        : "border-border"
-                    }`}>
-                      {isSelected && (
-                        <div className="w-2 h-2 rounded-full bg-primary-foreground" />
-                      )}
-                    </div>
+            <div className="flex flex-col gap-3">
+              <div className="relative">
+                <select
+                  value={selectedSeries}
+                  onChange={(e) => setSelectedSeries(e.target.value as SeriesKey)}
+                  className="w-full h-11 pl-4 pr-10 bg-card border border-border text-sm text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary rounded-xl transition-all cursor-pointer appearance-none"
+                >
+                  {CARD_SERIES.map((series) => (
+                    <option key={series.key} value={series.key}>
+                      {series.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                  <ChevronDown size={16} />
+                </div>
+              </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-semibold text-sm text-foreground">{series.label}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mb-2">{series.description}</p>
-                      {/* Card preview */}
-                      <div className="flex flex-wrap gap-1">
-                        {series.values.map((v, i) => (
-                          <span
-                            key={i}
-                            className={`inline-flex items-center justify-center min-w-[28px] h-7 px-1.5 rounded-md text-[11px] font-semibold border transition-colors ${
-                              isSelected
-                                ? "border-primary text-primary bg-primary/10"
-                                : "border-border text-muted-foreground bg-secondary"
-                            }`}
-                          >
-                            {v}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+              <div className="p-4 rounded-xl border border-border bg-secondary/30">
+                <p className="text-[12px] text-muted-foreground mb-3 leading-relaxed">
+                  {CARD_SERIES.find(s => s.key === selectedSeries)?.description}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {CARD_SERIES.find(s => s.key === selectedSeries)?.values.map((v, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md text-[11px] font-semibold border border-border bg-card text-foreground shadow-sm"
+                    >
+                      {v}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>

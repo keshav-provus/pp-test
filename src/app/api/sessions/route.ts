@@ -30,11 +30,10 @@ export async function POST(req: NextRequest) {
       participants: { name: string; isHost: boolean }[];
     };
 
-    // Calculate total points
-    const totalPoints = issues.reduce((sum, issue) => {
+    const totalPoints = parseFloat(issues.reduce((sum, issue) => {
       const pts = parseFloat(issue.estimate || "0");
       return sum + (isNaN(pts) ? 0 : pts);
-    }, 0);
+    }, 0).toFixed(2));
 
     // 1. Insert session
     const { data: session, error: sessionError } = await supabaseServer
@@ -111,7 +110,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get("email");
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
 
     let query = supabaseServer
       .from("sessions")
