@@ -55,7 +55,7 @@
   --card-foreground: oklch(0.21 0.034 264.665);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.21 0.034 264.665);
-  --primary: oklch(0.488 0.243 264.376); /* #0052CC (Jira Blue) */
+  --primary: oklch(0.50 0.23 245.0); /* True Blue */
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.967 0.003 264.542); /* #F4F5F7 */
   --secondary-foreground: oklch(0.21 0.034 264.665);
@@ -67,8 +67,8 @@
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.928 0.006 264.531); /* #DFE1E6 */
   --input: oklch(0.928 0.006 264.531);
-  --ring: oklch(0.488 0.243 264.376); /* Jira Blue focus ring */
-  --chart-1: oklch(0.488 0.243 264.376);
+  --ring: oklch(0.50 0.23 245.0); /* True Blue focus ring */
+  --chart-1: oklch(0.50 0.23 245.0);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
@@ -76,12 +76,12 @@
   --radius: 0.375rem; /* Smoother, slightly smaller radius for enterprise look, like 6px */
   --sidebar: oklch(0.985 0.002 247.839);
   --sidebar-foreground: oklch(0.21 0.034 264.665);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: oklch(0.50 0.23 245.0);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.967 0.003 264.542);
   --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
   --sidebar-border: oklch(0.928 0.006 264.531);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  --sidebar-ring: oklch(0.50 0.23 245.0);
 }
 
 .dark {
@@ -92,7 +92,7 @@
   --card-foreground: oklch(0.928 0.006 264.531);
   --popover: oklch(0.278 0.033 256.848);
   --popover-foreground: oklch(0.928 0.006 264.531);
-  --primary: oklch(0.627 0.265 303.9); /* #4C9AFF (Lighter Jira Blue for Dark Mode) */
+  --primary: oklch(0.60 0.23 245.0); /* True Blue for Dark Mode */
   --primary-foreground: oklch(0.21 0.034 264.665); /* Dark text on blue buttons */
   --secondary: oklch(0.32 0.03 260); /* #2C333A */
   --secondary-foreground: oklch(0.928 0.006 264.531);
@@ -103,20 +103,20 @@
   --destructive: oklch(0.704 0.191 22.216); /* #E2483D */
   --border: oklch(0.32 0.03 260); /* #2C333A */
   --input: oklch(0.32 0.03 260);
-  --ring: oklch(0.627 0.265 303.9); /* #4C9AFF */
-  --chart-1: oklch(0.627 0.265 303.9);
+  --ring: oklch(0.60 0.23 245.0); /* True Blue ring */
+  --chart-1: oklch(0.60 0.23 245.0);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-4: oklch(0.60 0.23 245.0);
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.21 0.034 264.665);
   --sidebar-foreground: oklch(0.928 0.006 264.531);
-  --sidebar-primary: oklch(0.627 0.265 303.9);
+  --sidebar-primary: oklch(0.60 0.23 245.0);
   --sidebar-primary-foreground: oklch(0.21 0.034 264.665);
   --sidebar-accent: oklch(0.32 0.03 260);
   --sidebar-accent-foreground: oklch(0.928 0.006 264.531);
   --sidebar-border: oklch(0.32 0.03 260);
-  --sidebar-ring: oklch(0.627 0.265 303.9);
+  --sidebar-ring: oklch(0.60 0.23 245.0);
 }
 
 /* ─── Enterprise Animations ─────────────────────────────────────────────── */
