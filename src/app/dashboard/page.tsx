@@ -200,7 +200,7 @@ function IssuesModal({
 
         <div className="px-5 py-3 border-t border-border text-center">
           <span className="text-xs text-muted-foreground">
-            Total: <span className="font-semibold text-foreground">{totalPoints} story points</span>
+            Total: <span className="font-semibold text-foreground">{parseFloat(totalPoints.toFixed(2))} story points</span>
           </span>
         </div>
       </motion.div>
@@ -331,7 +331,7 @@ function SessionsModal({
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">
-                        <span className="text-xs font-semibold text-foreground">{s.total_points} pts</span>
+                        <span className="text-xs font-semibold text-foreground">{parseFloat((s.total_points || 0).toFixed(2))} pts</span>
                         <p className="text-[10px] text-muted-foreground">{issueCount} issues · {participantCount} people</p>
                       </div>
                       <ChevronDown
@@ -418,7 +418,7 @@ function SessionsModal({
         <div className="px-5 py-3 border-t border-border text-center">
           <span className="text-xs text-muted-foreground">
             Total: <span className="font-semibold text-foreground">
-              {sessions.reduce((s, r) => s + (r.total_points || 0), 0)} story points
+              {parseFloat(sessions.reduce((s, r) => s + (r.total_points || 0), 0).toFixed(2))} story points
             </span>
             {" across "}
             <span className="font-semibold text-foreground">
@@ -470,7 +470,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchSessions() {
       try {
-        const res = await fetch("/api/sessions?limit=50");
+        const res = await fetch("/api/sessions?limit=10");
         if (res.ok) {
           const data = await res.json();
           setSessions(data.sessions || []);
@@ -500,7 +500,7 @@ export default function DashboardPage() {
   }, [sessions]);
 
   const totalIssues = allIssues.length;
-  const totalPoints = allIssues.reduce((s, i) => s + (parseFloat(i.points) || 0), 0);
+  const totalPoints = parseFloat(allIssues.reduce((s, i) => s + (parseFloat(i.points) || 0), 0).toFixed(2));
 
   const recentSessionsList = useMemo(() => {
     return sessions.slice(0, 5).map((s) => ({
