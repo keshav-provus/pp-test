@@ -2,15 +2,15 @@
 
 import React, { useState, useMemo, useEffect, useRef, Suspense, useCallback } from "react";
 import {
-  Settings, MoreHorizontal, ExternalLink, ChevronDown,
-  RotateCcw, FastForward, Users, Plus, Check, FileText,
+  ExternalLink, ChevronDown,
+  RotateCcw, Users, Plus, Check, FileText,
   LogOut, Loader2, X, Share2, FileEdit, Copy, Link2,
-  Timer, Play, Square, AlertTriangle, Eye, EyeOff,
+  Timer, Play, Square, AlertTriangle, Eye, EyeOff, Crown,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-import { useRoom, type SyncedIssue } from "@/context/RoomContext";
+import { useRoom } from "@/context/RoomContext";
 import {
   type JiraIssue,
   type JiraIssueDetails,
@@ -28,8 +28,12 @@ function fmtTime(s: number) {
 }
 
 function copyText(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {});
+  if (typeof navigator !== "undefined" && navigator.clipboard) {
+    navigator.clipboard.writeText(text).catch(console.error);
+  }
 }
+
+const isJiraIssue = (key?: string) => !!key && /^[A-Z][A-Z0-9_]*-[0-9]+$/i.test(key);
 
 // ─── Timer bar component ─────────────────────────────────────────────────────
 
@@ -61,16 +65,18 @@ function TimerBar({
   const expired = duration > 0 && remaining === 0 && timerRunning;
 
   if (!isHost && duration === 0) return null;
-
   return (
-    <div className={`flex items-center gap-3 px-4 py-2.5 rounded-md border transition-all ${
-      expired
-        ? "bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800"
-        : urgent
-        ? "bg-orange-50 dark:bg-orange-950/20 border-orange-300 dark:border-orange-700"
-        : "bg-[#f8f9fa] dark:bg-[#22272b] border-gray-200 dark:border-[#2c333a]"
-    }`}>
-      <Timer size={15} className={urgent ? "text-orange-500" : "text-gray-500 dark:text-[#8c9bab]"} />
+    <>
+      {/* Timer bar */}
+      <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all ${
+        expired
+          ? "bg-destructive/10 border-destructive/50"
+          : urgent
+          ? "bg-warning/20 border-warning/50"
+          : "bg-card border-border"
+      }`}>
+        <Timer size={15} className={urgent ? "text-warning" : "text-muted-foreground"} />
+      </div>
 
       {/* Duration editor (host only, when not running) */}
       {isHost && !timerRunning && editing ? (
@@ -79,14 +85,14 @@ function TimerBar({
             type="number" min={0} max={59}
             value={draftMins}
             onChange={e => setDraftMins(e.target.value)}
-            className="w-10 text-center text-sm font-mono bg-white dark:bg-[#1d2125] border border-gray-300 dark:border-[#2c333a] rounded px-1 py-0.5 focus:outline-none focus:border-[#0052cc]"
+            className="w-10 text-center text-sm font-mono bg-card border border-border rounded px-1 py-0.5 focus:outline-none focus:border-primary transition-colors"
           />
-          <span className="text-gray-500 font-mono">:</span>
+          <span className="text-muted-foreground font-mono">:</span>
           <input
             type="number" min={0} max={59}
             value={draftSecs}
             onChange={e => setDraftSecs(e.target.value)}
-            className="w-10 text-center text-sm font-mono bg-white dark:bg-[#1d2125] border border-gray-300 dark:border-[#2c333a] rounded px-1 py-0.5 focus:outline-none focus:border-[#0052cc]"
+            className="w-10 text-center text-sm font-mono bg-card border border-border rounded px-1 py-0.5 focus:outline-none focus:border-primary transition-colors"
           />
           <button
             onClick={() => {
@@ -94,18 +100,18 @@ function TimerBar({
               onSetDuration(d);
               setEditing(false);
             }}
-            className="text-xs bg-[#0052cc] text-white px-2 py-0.5 rounded hover:bg-[#0047b3] transition-colors ml-1"
+            className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded hover:bg-primary/90 transition-colors ml-1 font-medium"
           >Set</button>
-          <button onClick={() => setEditing(false)} className="text-xs text-gray-500 px-1">✕</button>
+          <button onClick={() => setEditing(false)} className="text-xs text-muted-foreground hover:text-foreground px-1 transition-colors">✕</button>
         </div>
       ) : (
         <button
           onClick={() => isHost && !timerRunning && setEditing(true)}
-          className={`font-mono text-sm font-bold tabular-nums min-w-[3rem] ${
-            urgent ? "text-orange-600 dark:text-orange-400" :
-            expired ? "text-red-600 dark:text-red-400" :
-            "text-[#172b4d] dark:text-[#b6c2cf]"
-          } ${isHost && !timerRunning ? "cursor-pointer hover:underline" : "cursor-default"}`}
+          className={`font-mono text-sm font-semibold tabular-nums min-w-[3rem] ${
+            urgent ? "text-warning" :
+            expired ? "text-destructive" :
+            "text-foreground"
+          } ${isHost && !timerRunning ? "cursor-pointer hover:opacity-75" : "cursor-default"}`}
           title={isHost && !timerRunning ? "Click to edit timer" : undefined}
         >
           {timerRunning || (!timerRunning && duration > 0 && remaining < duration)
@@ -116,10 +122,10 @@ function TimerBar({
 
       {/* Progress bar */}
       {duration > 0 && (
-        <div className="flex-1 h-1.5 bg-gray-200 dark:bg-[#2c333a] rounded-full overflow-hidden">
+        <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              urgent ? "bg-orange-500" : expired ? "bg-red-500" : "bg-[#0052cc] dark:bg-[#4c9aff]"
+              urgent ? "bg-warning" : expired ? "bg-destructive" : "bg-primary"
             }`}
             style={{ width: `${pct}%` }}
           />
@@ -127,7 +133,7 @@ function TimerBar({
       )}
 
       {expired && (
-        <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wide animate-pulse">
+        <span className="text-xs font-semibold text-destructive tracking-wide animate-pulse">
           Time&apos;s up!
         </span>
       )}
@@ -139,28 +145,28 @@ function TimerBar({
             <button
               onClick={onStart}
               disabled={duration === 0}
-              className="flex items-center gap-1 text-xs text-white bg-[#0052cc] hover:bg-[#0047b3] disabled:opacity-40 px-2.5 py-1 rounded transition-colors font-medium"
+              className="flex items-center gap-1 text-xs text-primary-foreground bg-primary hover:bg-primary/90 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors font-medium"
             >
               <Play size={11} className="fill-current" /> Start
             </button>
           ) : (
             <button
               onClick={onStop}
-              className="flex items-center gap-1 text-xs text-white bg-orange-500 hover:bg-orange-600 px-2.5 py-1 rounded transition-colors font-medium"
+              className="flex items-center gap-1 text-xs bg-card text-foreground border border-border hover:bg-secondary px-3 py-1.5 rounded-lg transition-colors font-medium"
             >
               <Square size={11} className="fill-current" /> Stop
             </button>
           )}
           <button
             onClick={onReset}
-            className="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-[#2c333a] rounded transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all"
             title="Reset timer"
           >
             <RotateCcw size={13} />
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -168,7 +174,7 @@ function TimerBar({
 
 function CopyToast({ show }: { show: boolean }) {
   return (
-    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-[#172b4d] dark:bg-[#b6c2cf] text-white dark:text-[#172b4d] px-4 py-2.5 rounded-lg shadow-xl text-sm font-medium transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"}`}>
+    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-primary text-primary-foreground px-5 py-3 rounded-full shadow-lg border border-border text-sm font-medium transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"}`}>
       <Check size={15} /> Copied to clipboard
     </div>
   );
@@ -179,7 +185,7 @@ function CopyToast({ show }: { show: boolean }) {
 function PokerSessionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
 
   const sessionId = searchParams.get("sessionId") ?? "";
   const role = searchParams.get("role");
@@ -197,7 +203,7 @@ function PokerSessionContent() {
 
   const [isMounted, setIsMounted] = useState(false);
   const [issues, setIssues] = useState<JiraIssue[]>([]);
-  const [myVote, setMyVote] = useState<number | null>(null);
+  const [myVote, setMyVote] = useState<number | string | null>(null);
   const [finalEstimate, setFinalEstimate] = useState("");
   const [estimates, setEstimates] = useState<Record<string, string>>({});
   const [activeIssueDetails, setActiveIssueDetails] = useState<JiraIssueDetails | null>(null);
@@ -220,7 +226,8 @@ function PokerSessionContent() {
     : session?.user?.name || "Anonymous";
 
   const timerRunning = timer.startedAt !== null;
-  const allVoted = participants.length > 0 && participants.every(p => votes[p.name] !== undefined && votes[p.name] !== null);
+  const activeParticipants = participants.length > 0 ? participants : Object.keys(votes).map(name => ({ name, isHost: name === participantName ? isHost : false }));
+  const allVoted = activeParticipants.length > 0 && activeParticipants.every(p => votes[p.name] !== undefined && votes[p.name] !== null);
   const canReveal = isHost && (timerRunning ? timerRemaining === 0 : allVoted);
 
   // ── Mount ──────────────────────────────────────────────────────────────────
@@ -234,10 +241,16 @@ function PokerSessionContent() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (isMounted && sessionId && role) {
-      joinRoom(sessionId, participantName, isHost);
+    if (isMounted) {
+      if (!sessionId || !role || sessionStorage.getItem(`left_session_${sessionId}`)) {
+        router.push("/dashboard");
+        return;
+      }
+      if (authStatus !== "loading") {
+        joinRoom(sessionId, participantName, isHost);
+      }
     }
-  }, [isMounted, sessionId, role]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMounted, sessionId, role, authStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When host has both joined the channel AND has issues loaded, broadcast issue 0
   // so any participants already in the room receive the initial active issue
@@ -273,6 +286,14 @@ function PokerSessionContent() {
     }
   }, [currentIssueIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Reset local vote when host triggers revote (votes_reset) ────────────
+  useEffect(() => {
+    if (!revealed && Object.keys(votes).length === 0) {
+      setMyVote(null);
+      autoRevealedRef.current = false;
+    }
+  }, [revealed, votes]);
+
   // ── Auto-reveal when timer hits 0 ────────────────────────────────────────
   useEffect(() => {
     if (
@@ -290,8 +311,8 @@ function PokerSessionContent() {
   // activeIssue comes from context (broadcast by host) — same for ALL clients
 
   useEffect(() => {
-    if (!activeIssue) { setActiveIssueDetails(null); return; }
-    if (activeIssue.id.startsWith("custom-")) { setActiveIssueDetails(null); return; }
+    if (!activeIssue) return;
+    if (!isJiraIssue(activeIssue.key)) { setActiveIssueDetails(null); return; }
 
     let cancelled = false;
     setIsLoadingDetails(true);
@@ -309,7 +330,7 @@ function PokerSessionContent() {
     };
     doFetch();
     return () => { cancelled = true; };
-  }, [activeIssue?.key]);
+  }, [activeIssue]);
 
   // ── Grouped vote results ──────────────────────────────────────────────────
   const groupedVotes = useMemo(() => {
@@ -317,8 +338,8 @@ function PokerSessionContent() {
     Object.entries(votes).forEach(([name, vote]) => {
       if (vote === null) return;
       if (!groups[vote]) groups[vote] = [];
-      const p = participants.find(p => p.name === name);
-      if (p) groups[vote].push(p);
+      const p = participants.find(part => part.name === name) || { name, isHost: false };
+      groups[vote].push(p);
     });
     return groups;
   }, [votes, participants]);
@@ -329,8 +350,20 @@ function PokerSessionContent() {
     return parseFloat((active.reduce((a, b) => a + b, 0) / active.length).toFixed(1)).toString();
   }, [votes]);
 
+  const currentMin = useMemo(() => {
+    const active = Object.values(votes).filter((v): v is number => v !== null);
+    if (!active.length) return "";
+    return Math.min(...active).toString();
+  }, [votes]);
+
+  const currentMax = useMemo(() => {
+    const active = Object.values(votes).filter((v): v is number => v !== null);
+    if (!active.length) return "";
+    return Math.max(...active).toString();
+  }, [votes]);
+
   const votedCount = Object.values(votes).filter(v => v !== null).length;
-  const totalParticipants = participants.length;
+  const totalParticipants = Math.max(participants.length, votedCount) || 1;
   // isLastIssue only meaningful for host (they own the issues array)
   const isLastIssue = isHost && issues.length > 0 && currentIssueIndex === issues.length - 1;
   const estimatedIssuesCount = Object.keys(estimates).length;
@@ -362,7 +395,7 @@ function PokerSessionContent() {
     if (est) {
       setIsSaving(true);
       try {
-        if (!activeIssue.id.startsWith("custom-")) {
+        if (isJiraIssue(activeIssue.key)) {
           const pts = parseFloat(est);
           if (!isNaN(pts)) await updateStoryPoints(activeIssue.key, pts);
         }
@@ -451,15 +484,55 @@ function PokerSessionContent() {
   const handleEndOrLeave = async () => {
     if (isHost) {
       if (!confirm("End this session for everyone?")) return;
+
+      // ── Persist session history to DB ─────────────────────────────────
+      try {
+        const config = (() => {
+          try {
+            const raw = sessionStorage.getItem("session_config");
+            return raw ? JSON.parse(raw) : {};
+          } catch { return {}; }
+        })();
+
+        const issuePayload = issues.map((issue) => ({
+          key: issue.key,
+          summary: issue.summary,
+          source: isJiraIssue(issue.key) ? "jira" : "custom",
+          estimate: estimates[issue.id] || null,
+          votes: votes, // final votes state
+        }));
+
+        await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionCode: sessionId,
+            name: config.sessionName || "Untitled Session",
+            hostName: participantName,
+            hostEmail: session?.user?.email || null,
+            seriesKey: config.seriesKey || "fibonacci",
+            issues: issuePayload,
+            participants: participants.map((p) => ({
+              name: p.name,
+              isHost: p.isHost,
+            })),
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to save session history:", err);
+        // Non-blocking — still end the session even if save fails
+      }
+
       await endSession();
     } else {
       await leaveSession(participantName);
+      sessionStorage.setItem(`left_session_${sessionId}`, "true");
     }
     router.push("/dashboard");
   };
 
   const openJiraIssue = () => {
-    if (!activeIssue || activeIssue.id.startsWith("custom-")) return;
+    if (!activeIssue || !isJiraIssue(activeIssue.key)) return;
     window.open(`https://provusinc.atlassian.net/browse/${activeIssue.key}`, "_blank", "noopener,noreferrer");
   };
 
@@ -467,89 +540,120 @@ function PokerSessionContent() {
     const initials = name ? name.substring(0, 2).toUpperCase() : "?";
     const sz = size === "md" ? "w-8 h-8 text-xs" : "w-6 h-6 text-[10px]";
     return (
-      <div className={`${sz} rounded-full bg-[#0052cc] dark:bg-[#4c9aff] text-white flex items-center justify-center font-semibold shadow-sm border-2 border-white dark:border-[#1d2125] shrink-0`}>
+      <div className={`${sz} rounded-full bg-gray-100 dark:bg-[#222] text-[#111] dark:text-[#ededed] flex items-center justify-center font-semibold shadow-sm border border-gray-200 dark:border-[#333] shrink-0 uppercase`}>
         {initials}
       </div>
     );
   };
 
+  // Read card series from session config (set by create page) — must be before early return
+  const cardValues: (number | string)[] = useMemo(() => {
+    if (typeof window === "undefined") return [0, 1, 2, 3, 5, 8, 13, 21, 34];
+    try {
+      const raw = sessionStorage.getItem("session_config");
+      if (raw) {
+        const config = JSON.parse(raw);
+        if (Array.isArray(config.seriesValues) && config.seriesValues.length > 0) {
+          return config.seriesValues;
+        }
+      }
+    } catch {}
+    return [0, 1, 2, 3, 5, 8, 13, 21, 34]; // default Fibonacci
+  }, []);
+
+  const sessionDisplayName = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const raw = sessionStorage.getItem("session_config");
+      if (raw) return JSON.parse(raw).sessionName || "";
+    } catch {}
+    return "";
+  }, []);
+
+  const seriesLabel = useMemo(() => {
+    if (typeof window === "undefined") return "fibonacci";
+    try {
+      const raw = sessionStorage.getItem("session_config");
+      if (raw) return JSON.parse(raw).seriesKey || "fibonacci";
+    } catch {}
+    return "fibonacci";
+  }, []);
+
   if (!isMounted) return (
-    <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] flex items-center justify-center text-gray-500">
+    <div className="min-h-screen page-bg flex items-center justify-center text-muted-foreground">
       <Loader2 size={20} className="animate-spin mr-2" /> Loading session…
     </div>
   );
 
-  const cardValues = [0, 1, 2, 3, 5, 8, 13, 21, 34];
-
   return (
-    <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] font-sans text-[#172b4d] dark:text-[#b6c2cf] flex justify-center py-6 px-4 transition-colors">
+    <div className="min-h-screen page-bg font-sans text-foreground flex justify-center py-6 px-4 transition-colors">
       <CopyToast show={showCopyToast} />
 
       {/* ── COMPLETION MODAL ─────────────────────────────────────────────── */}
       {showCompletionModal && isHost && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#1d2125] rounded-xl shadow-2xl w-full max-w-4xl border border-gray-200 dark:border-[#2c333a] overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-4xl border border-border overflow-hidden flex flex-col max-h-[90vh]">
             {modalMode === "menu" ? (
               <div className="p-8">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold">Backlog Completed! 🎉</h2>
-                    <p className="text-gray-500 dark:text-[#8c9bab] mt-1">All issues in this backlog have been estimated.</p>
+                    <h2 className="text-2xl font-semibold text-foreground">Backlog Completed! 🎉</h2>
+                    <p className="text-muted-foreground mt-1 text-sm">All issues in this backlog have been estimated.</p>
                   </div>
-                  <button onClick={() => setShowCompletionModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-[#22272b] rounded-md transition-colors">
-                    <X size={20} className="text-gray-500" />
+                  <button onClick={() => setShowCompletionModal(false)} className="p-2 hover:bg-secondary rounded-md transition-colors text-muted-foreground hover:text-foreground">
+                    <X size={20} />
                   </button>
                 </div>
 
                 {/* Summary */}
-                <div className="flex gap-4 mb-6 p-4 bg-gray-50 dark:bg-[#22272b] rounded-lg border border-gray-200 dark:border-[#2c333a]">
-                  <div className="text-center px-4 border-r border-gray-200 dark:border-[#2c333a]">
-                    <div className="text-2xl font-bold text-[#0052cc] dark:text-[#4c9aff]">{estimatedIssuesCount}</div>
-                    <div className="text-xs text-gray-500 dark:text-[#8c9bab] mt-0.5">Issues Estimated</div>
+                <div className="flex gap-4 mb-6 p-4 bg-secondary rounded-xl border border-border">
+                  <div className="text-center px-4 border-r border-border">
+                    <div className="text-2xl font-semibold text-foreground">{estimatedIssuesCount}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Issues Estimated</div>
                   </div>
                   <div className="text-center px-4">
-                    <div className="text-2xl font-bold text-[#006644] dark:text-[#57d9a3]">{totalStoryPoints}</div>
-                    <div className="text-xs text-gray-500 dark:text-[#8c9bab] mt-0.5">Total Story Points</div>
+                    <div className="text-2xl font-semibold text-foreground">{totalStoryPoints}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Total Story Points</div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                  <div className="border border-gray-200 dark:border-[#2c333a] rounded-lg p-5 flex flex-col">
-                    <div className="w-10 h-10 rounded bg-[#e9f2ff] dark:bg-[#0052cc]/20 text-[#0052cc] dark:text-[#4c9aff] flex items-center justify-center mb-3"><Share2 size={20} /></div>
-                    <h3 className="font-semibold text-lg mb-1">Import from Jira</h3>
-                    <p className="text-sm text-gray-500 dark:text-[#8c9bab] mb-4 flex-1">Pull in more active sprints or backlog items.</p>
-                    <button onClick={() => setModalMode("jira")} className="w-full bg-white dark:bg-[#1d2125] border border-gray-300 dark:border-[#8c9bab]/30 hover:bg-gray-50 dark:hover:bg-[#2c333a] font-medium py-2 rounded transition-colors text-sm">
+                  <div className="border border-border rounded-xl p-5 flex flex-col bg-card">
+                    <div className="w-10 h-10 rounded-xl bg-secondary text-foreground flex items-center justify-center mb-3 border border-border"><Share2 size={20} /></div>
+                    <h3 className="font-semibold text-lg mb-1 text-foreground">Import from Jira</h3>
+                    <p className="text-sm text-muted-foreground mb-4 flex-1">Pull in more active sprints or backlog items.</p>
+                    <button onClick={() => setModalMode("jira")} className="w-full bg-card border border-border hover:bg-secondary font-medium py-2 rounded-lg transition-colors text-sm text-foreground">
                       Open Selector
                     </button>
                   </div>
-                  <div className="border border-gray-200 dark:border-[#2c333a] rounded-lg p-5 flex flex-col">
-                    <div className="w-10 h-10 rounded bg-[#eae6ff] dark:bg-[#6554c0]/20 text-[#6554c0] dark:text-[#9f8fef] flex items-center justify-center mb-3"><FileEdit size={20} /></div>
-                    <h3 className="font-semibold text-lg mb-1">Add Custom Story</h3>
-                    <p className="text-sm text-gray-500 dark:text-[#8c9bab] mb-4 flex-1">Write a new task or discussion item.</p>
+                  <div className="border border-border rounded-xl p-5 flex flex-col bg-card">
+                    <div className="w-10 h-10 rounded-xl bg-secondary text-foreground flex items-center justify-center mb-3 border border-border"><FileEdit size={20} /></div>
+                    <h3 className="font-semibold text-lg mb-1 text-foreground">Add Custom Story</h3>
+                    <p className="text-sm text-muted-foreground mb-4 flex-1">Write a new task or discussion item.</p>
                     <div className="flex gap-2">
                       <input
                         type="text" value={customStorySummary}
                         onChange={e => setCustomStoryName(e.target.value)}
                         placeholder="What needs to be done?"
                         onKeyDown={e => e.key === "Enter" && handleAppendCustomIssue()}
-                        className="flex-1 h-9 px-3 bg-white dark:bg-[#1d2125] border border-gray-300 dark:border-[#8c9bab]/30 rounded text-sm focus:outline-none focus:border-[#6554c0] transition-colors"
+                        className="flex-1 h-9 px-3 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-colors text-foreground placeholder:text-muted-foreground"
                       />
-                      <button onClick={handleAppendCustomIssue} disabled={!customStorySummary.trim()} className="bg-[#6554c0] hover:bg-[#5243aa] text-white px-3 h-9 rounded text-sm font-medium disabled:opacity-50 transition-colors">Add</button>
+                      <button onClick={handleAppendCustomIssue} disabled={!customStorySummary.trim()} className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 h-9 rounded-lg text-sm font-medium disabled:opacity-40 transition-colors active:scale-[0.98]">Add</button>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex justify-end border-t border-gray-200 dark:border-[#2c333a] pt-4">
-                  <button onClick={handleEndOrLeave} className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-medium flex items-center gap-2 transition-colors text-sm">
+                <div className="flex justify-end border-t border-border pt-5">
+                  <button onClick={handleEndOrLeave} className="bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors text-sm">
                     <LogOut size={16} /> End Session For All
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col h-full bg-[#f4f5f7] dark:bg-[#111214]">
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-[#2c333a] bg-white dark:bg-[#1d2125]">
-                  <h2 className="font-semibold text-lg">Select Issues to Append</h2>
-                  <button onClick={() => setModalMode("menu")} className="text-gray-500 hover:text-gray-800 dark:hover:text-white text-sm font-medium transition-colors">Cancel</button>
+              <div className="flex flex-col h-full bg-card">
+                <div className="flex items-center justify-between p-4 border-b border-border bg-card">
+                  <h2 className="font-semibold text-lg text-foreground">Select Issues to Append</h2>
+                  <button onClick={() => setModalMode("menu")} className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors">Cancel</button>
                 </div>
                 <div className="p-4 flex-1 overflow-hidden">
                   <JiraMultiSelector onFinalSelection={handleAppendJiraIssues} />
@@ -561,24 +665,27 @@ function PokerSessionContent() {
       )}
 
       {/* ── MAIN CARD ────────────────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-[#1d2125] w-full max-w-[1400px] rounded-md shadow-sm border border-gray-200 dark:border-[#2c333a] flex flex-col min-h-[90vh]">
+      <div className="relative bg-card w-full max-w-[1400px] rounded-2xl shadow-sm border border-border flex flex-col min-h-[90vh] overflow-hidden">
 
         {/* TOP HEADER */}
-        <header className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-[#2c333a] gap-3 flex-wrap">
+        <header className="flex items-center justify-between px-5 py-3 border-b border-border gap-3 flex-wrap bg-card z-10 sticky top-0">
           <div className="flex items-center gap-2 text-sm min-w-0">
-            <div className="w-6 h-6 bg-[#0052cc] rounded flex items-center justify-center text-white shrink-0">
-              <FileText size={14} />
+            <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center text-primary-foreground shrink-0">
+              <FileText size={13} />
             </div>
-            <span className="text-gray-500 dark:text-[#8c9bab] hidden sm:inline">Planning Poker /</span>
+            <span className="text-muted-foreground hidden sm:inline text-xs font-medium">Poker /</span>
+            {sessionDisplayName && (
+              <span className="text-xs font-semibold text-foreground hidden sm:inline">{sessionDisplayName} /</span>
+            )}
             {/* Tap session ID to copy */}
             <button
               onClick={handleCopySessionId}
               title="Click to copy session ID"
-              className="flex items-center gap-1.5 font-mono font-semibold text-[#172b4d] dark:text-[#b6c2cf] hover:text-[#0052cc] dark:hover:text-[#4c9aff] hover:bg-[#e9f2ff] dark:hover:bg-[#0052cc]/10 px-2 py-0.5 rounded transition-all group"
+              className="flex items-center gap-1.5 font-mono font-semibold text-sm text-foreground hover:bg-secondary px-2.5 py-1 rounded-lg transition-all group tracking-wide"
             >
               {sessionId}
               {copiedSessionId
-                ? <Check size={13} className="text-green-500" />
+                ? <Check size={13} className="text-foreground" />
                 : <Copy size={13} className="opacity-40 group-hover:opacity-100 transition-opacity" />
               }
             </button>
@@ -588,7 +695,7 @@ function PokerSessionContent() {
             {/* Copy invite link */}
             <button
               onClick={handleCopyInviteLink}
-              className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-[#9fadbc] hover:text-[#0052cc] dark:hover:text-[#4c9aff] bg-gray-50 dark:bg-[#22272b] hover:bg-[#e9f2ff] dark:hover:bg-[#0052cc]/10 border border-gray-200 dark:border-[#2c333a] px-3 py-1.5 rounded transition-all font-medium"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground bg-card hover:bg-secondary border border-border px-3.5 py-1.5 rounded-lg transition-all font-medium text-xs"
             >
               <Link2 size={14} /> <span className="hidden sm:inline">Copy Invite Link</span>
             </button>
@@ -597,10 +704,10 @@ function PokerSessionContent() {
             {isHost && (
               <button
                 onClick={() => setShowTimerPanel(v => !v)}
-                className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded border transition-all font-medium ${
+                className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-all font-medium text-xs ${
                   showTimerPanel
-                    ? "bg-[#0052cc] text-white border-[#0052cc]"
-                    : "text-gray-600 dark:text-[#9fadbc] bg-gray-50 dark:bg-[#22272b] border-gray-200 dark:border-[#2c333a] hover:border-[#0052cc] dark:hover:border-[#4c9aff]"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "text-muted-foreground bg-card border-border hover:text-foreground hover:bg-secondary"
                 }`}
               >
                 <Timer size={14} /> <span className="hidden sm:inline">Timer</span>
@@ -609,10 +716,15 @@ function PokerSessionContent() {
 
             <button
               onClick={handleEndOrLeave}
-              className="flex items-center gap-1.5 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800/50 px-3 py-1.5 rounded transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 hover:bg-destructive/20 border border-destructive/20 px-3.5 py-1.5 rounded-lg transition-colors font-medium"
             >
               <LogOut size={14} /> <span className="hidden sm:inline">{isHost ? "End" : "Leave"}</span>
             </button>
+            {seriesLabel && (
+              <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-secondary border border-border text-muted-foreground uppercase tracking-wider hidden sm:inline-flex">
+                {seriesLabel.replace(/_/g, " ")}
+              </span>
+            )}
           </div>
         </header>
 
@@ -637,29 +749,29 @@ function PokerSessionContent() {
 
             {/* Active issue banner */}
             {activeIssue ? (
-              <div className="bg-[#e9f2ff] dark:bg-[#0052cc]/10 border border-[#cce0ff] dark:border-[#0052cc]/30 rounded-md px-4 py-3 flex items-center justify-between gap-3 flex-wrap animate-in fade-in duration-300">
+              <div className="bg-secondary/50 border border-border rounded-xl px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap animate-fade-in-up">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="bg-green-500 w-4 h-4 rounded-sm flex items-center justify-center shrink-0">
-                    <Check size={10} className="text-white" />
+                  <div className="bg-primary w-4 h-4 rounded-[4px] flex items-center justify-center shrink-0">
+                    <Check size={10} className="text-primary-foreground" />
                   </div>
                   <button
                     onClick={openJiraIssue}
-                    className={`text-[#0052cc] dark:text-[#4c9aff] font-semibold shrink-0 ${!activeIssue.id.startsWith("custom-") ? "hover:underline cursor-pointer" : "cursor-default"}`}
+                    className={`text-foreground font-semibold shrink-0 ${isJiraIssue(activeIssue.key) ? "hover:underline cursor-pointer" : "cursor-default"}`}
                   >
                     {activeIssue.key}
                   </button>
-                  <span className="font-medium text-[#172b4d] dark:text-[#b6c2cf] truncate">
+                  <span className="font-medium text-muted-foreground truncate">
                     {activeIssue.summary}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 text-sm">
-                  <span className="bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] text-gray-600 dark:text-[#9fadbc] text-xs font-semibold px-2 py-0.5 rounded uppercase">
+                  <span className="bg-card border border-border text-muted-foreground text-[10px] font-semibold px-2 py-1 rounded-md uppercase tracking-wider">
                     {activeIssue.statusCategory || "OPEN"}
                   </span>
-                  {!activeIssue.id.startsWith("custom-") && (
+                  {isJiraIssue(activeIssue.key) && (
                     <button
                       onClick={openJiraIssue}
-                      className="flex items-center gap-1 text-gray-600 dark:text-[#b6c2cf] bg-white dark:bg-[#1d2125] border border-gray-300 dark:border-[#8c9bab]/30 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-[#22272b] font-medium transition-colors text-xs"
+                      className="flex items-center gap-1.5 text-muted-foreground bg-card border border-border px-2.5 py-1 rounded-lg hover:bg-secondary font-medium transition-colors text-xs"
                     >
                       <ExternalLink size={12} /> Open in Jira
                     </button>
@@ -667,7 +779,7 @@ function PokerSessionContent() {
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50 dark:bg-[#22272b] border border-gray-200 dark:border-[#2c333a] rounded-md px-4 py-5 text-center text-gray-500 dark:text-[#8c9bab] text-sm">
+              <div className="bg-secondary/50 border border-border rounded-xl px-4 py-6 text-center text-muted-foreground text-sm font-medium">
                 {issues.length === 0 ? "No issues loaded for this session." : "Waiting for host to select an issue…"}
               </div>
             )}
@@ -675,69 +787,69 @@ function PokerSessionContent() {
             {/* Issue details grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Description */}
-              <div className="lg:col-span-2 border border-gray-200 dark:border-[#2c333a] rounded-md overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 dark:border-[#2c333a] bg-gray-50 dark:bg-[#22272b]">
-                  <h3 className="font-semibold text-sm text-[#172b4d] dark:text-[#b6c2cf]">Description</h3>
-                  <ChevronDown size={15} className="text-gray-400" />
+              <div className="lg:col-span-2 border border-border rounded-xl overflow-hidden bg-card">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-secondary/50">
+                  <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">Description</h3>
+                  <ChevronDown size={15} className="text-muted-foreground" />
                 </div>
-                <div className="p-4 text-sm text-gray-700 dark:text-[#9fadbc] min-h-24">
+                <div className="p-4 text-sm text-muted-foreground min-h-24">
                   {isLoadingDetails ? (
-                    <div className="flex items-center gap-2 text-gray-400">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <Loader2 size={14} className="animate-spin" /> Fetching from Jira…
                     </div>
-                  ) : activeIssue?.id.startsWith("custom-") ? (
+                  ) : !isJiraIssue(activeIssue?.key) ? (
                     <div className="space-y-2">
-                      <p className="font-medium text-[#172b4d] dark:text-[#b6c2cf]">{activeIssue.summary}</p>
-                      <p className="text-gray-400 dark:text-[#8c9bab] italic text-xs">Custom story — no Jira description available.</p>
+                      <p className="font-medium text-foreground">{activeIssue?.summary}</p>
+                      <p className="text-muted-foreground italic text-xs">Custom story — no Jira description available.</p>
                     </div>
                   ) : activeIssueDetails?.description ? (
                     <p className="whitespace-pre-wrap leading-relaxed">{activeIssueDetails.description}</p>
                   ) : (
-                    <p className="text-gray-400 dark:text-[#8c9bab] italic">No description provided for this issue.</p>
+                    <p className="text-muted-foreground italic">No description provided for this issue.</p>
                   )}
                 </div>
               </div>
 
               {/* Details sidebar */}
-              <div className="border border-gray-200 dark:border-[#2c333a] rounded-md overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 dark:border-[#2c333a] bg-gray-50 dark:bg-[#22272b]">
-                  <h3 className="font-semibold text-sm text-[#172b4d] dark:text-[#b6c2cf]">Details</h3>
-                  <ChevronDown size={15} className="text-gray-400" />
+              <div className="border border-border rounded-xl overflow-hidden bg-card">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-secondary/50">
+                  <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">Details</h3>
+                  <ChevronDown size={15} className="text-muted-foreground" />
                 </div>
                 <div className="p-4 text-sm space-y-3">
                   <div className="flex items-start gap-3">
-                    <span className="text-gray-400 dark:text-[#8c9bab] w-16 shrink-0 text-xs pt-0.5">Reporter</span>
+                    <span className="text-muted-foreground w-16 shrink-0 text-xs pt-0.5">Reporter</span>
                     <div className="flex items-center gap-2 min-w-0">
                       {isLoadingDetails ? (
-                        <span className="text-gray-300 text-xs">Loading…</span>
+                        <span className="text-muted-foreground text-xs">Loading…</span>
                       ) : activeIssueDetails?.reporter ? (
                         <>
                           {renderAvatar(activeIssueDetails.reporter, "sm")}
-                          <span className="font-medium text-[#172b4d] dark:text-[#b6c2cf] text-xs truncate">{activeIssueDetails.reporter}</span>
+                          <span className="font-medium text-foreground text-xs truncate">{activeIssueDetails.reporter}</span>
                         </>
-                      ) : activeIssue?.id.startsWith("custom-") ? (
-                        <span className="text-gray-400 dark:text-[#8c9bab] italic text-xs">Custom issue</span>
+                      ) : !isJiraIssue(activeIssue?.key) ? (
+                        <span className="text-muted-foreground italic text-xs">Custom issue</span>
                       ) : (
-                        <span className="text-gray-400 dark:text-[#8c9bab] italic text-xs">Unassigned</span>
+                        <span className="text-muted-foreground italic text-xs">Unassigned</span>
                       )}
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <span className="text-gray-400 dark:text-[#8c9bab] w-16 shrink-0 text-xs pt-0.5">Status</span>
-                    <span className="text-xs font-semibold bg-[#dfe1e6] dark:bg-[#2c333a] text-gray-700 dark:text-[#b6c2cf] px-2 py-0.5 rounded uppercase">
+                    <span className="text-muted-foreground w-16 shrink-0 text-xs pt-0.5">Status</span>
+                    <span className="text-[10px] font-semibold bg-secondary text-muted-foreground px-2 py-0.5 rounded uppercase tracking-wider">
                       {activeIssue?.status || "—"}
                     </span>
                   </div>
                   <div className="flex items-start gap-3">
-                    <span className="text-gray-400 dark:text-[#8c9bab] w-16 shrink-0 text-xs pt-0.5">Source</span>
-                    <span className="text-xs text-gray-600 dark:text-[#9fadbc]">
-                      {activeIssue?.id.startsWith("custom-") ? "Custom" : "Jira"}
+                    <span className="text-muted-foreground w-16 shrink-0 text-xs pt-0.5">Source</span>
+                    <span className="text-xs text-foreground font-medium">
+                      {!isJiraIssue(activeIssue?.key) ? "Custom" : "Jira"}
                     </span>
                   </div>
                   {estimates[activeIssue?.id ?? ""] && (
                     <div className="flex items-start gap-3">
-                      <span className="text-gray-400 dark:text-[#8c9bab] w-16 shrink-0 text-xs pt-0.5">Estimate</span>
-                      <span className="text-xs font-bold text-[#006644] dark:text-[#57d9a3] bg-[#e3fcef] dark:bg-[#006644]/20 px-2 py-0.5 rounded">
+                      <span className="text-muted-foreground w-16 shrink-0 text-xs pt-0.5">Estimate</span>
+                      <span className="text-xs font-bold text-foreground bg-secondary border border-border px-2 py-0.5 rounded-md">
                         {activeIssue ? estimates[activeIssue.id] : ""} pts
                       </span>
                     </div>
@@ -747,7 +859,7 @@ function PokerSessionContent() {
             </div>
 
             {/* Voting controls bar */}
-            <div className="flex items-center gap-2 bg-[#f8f9fa] dark:bg-[#22272b] p-3 rounded-md border border-gray-200 dark:border-[#2c333a] shadow-sm flex-wrap">
+            <div className="flex items-center gap-2 bg-card p-3.5 rounded-xl border border-border shadow-sm flex-wrap">
               {/* Final estimate input (host) */}
               {isHost && (
                 <input
@@ -757,7 +869,7 @@ function PokerSessionContent() {
                   disabled={isSaving}
                   placeholder={revealed && currentAverage ? currentAverage : "pts"}
                   title={revealed && currentAverage ? `Average: ${currentAverage}` : "Override estimate"}
-                  className="w-16 h-8 bg-white dark:bg-[#1d2125] border border-gray-300 dark:border-[#2c333a] rounded px-2 text-center text-sm font-semibold focus:outline-none focus:border-[#0052cc] disabled:opacity-50 text-[#172b4d] dark:text-[#b6c2cf] placeholder:font-normal placeholder:text-gray-400 transition-colors"
+                  className="w-16 h-8 bg-secondary border border-border rounded-lg px-2 text-center text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 text-foreground placeholder:font-normal placeholder:text-muted-foreground transition-all"
                 />
               )}
 
@@ -765,17 +877,17 @@ function PokerSessionContent() {
                 <button
                   onClick={handleSaveAndNext}
                   disabled={isSaving}
-                  className={`text-white text-sm font-medium px-4 h-8 rounded flex items-center gap-1.5 disabled:opacity-50 transition-colors ${isLastIssue ? "bg-green-600 hover:bg-green-700" : "bg-[#0052cc] hover:bg-[#0047b3]"}`}
+                  className={`text-sm font-medium px-4 h-8 rounded-lg flex items-center gap-1.5 disabled:opacity-50 transition-colors active:scale-[0.98] ${isLastIssue ? "bg-card border border-border text-foreground hover:bg-secondary" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
                 >
                   {isSaving ? <><Loader2 size={13} className="animate-spin" /> Saving…</> : isLastIssue ? "Save & Finish" : "Save & Next →"}
                 </button>
               )}
 
-              <div className="flex items-center gap-1 border-l border-gray-300 dark:border-[#2c333a] pl-2 ml-1">
+              <div className="flex items-center gap-1 border-l border-border pl-2 ml-1">
                 {isHost && (
                   <button
                     onClick={resetVotes}
-                    className="p-1.5 text-gray-600 dark:text-[#9fadbc] hover:bg-gray-200 dark:hover:bg-[#2c333a] rounded transition-colors"
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors"
                     title="Reset round — clears all votes for everyone"
                   >
                     <RotateCcw size={15} />
@@ -792,7 +904,7 @@ function PokerSessionContent() {
                           : `Waiting for all ${totalParticipants} participants to vote (${votedCount}/${totalParticipants})`
                         : "Reveal all votes"
                     }
-                    className="flex items-center gap-1.5 px-2.5 h-8 text-sm font-medium rounded transition-all disabled:opacity-40 disabled:cursor-not-allowed text-white bg-[#6554c0] hover:bg-[#5243aa] disabled:bg-gray-400 dark:disabled:bg-[#2c333a]"
+                    className="flex items-center gap-1.5 px-2.5 h-8 text-sm font-medium rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed text-foreground bg-secondary hover:bg-secondary/80 border border-border active:scale-[0.98]"
                   >
                     <Eye size={14} /> Reveal
                   </button>
@@ -801,7 +913,7 @@ function PokerSessionContent() {
 
               {/* No-timer hint for participants */}
               {!isHost && !timerRunning && !revealed && (
-                <span className="text-xs text-gray-400 dark:text-[#8c9bab] ml-2">
+                <span className="text-xs text-muted-foreground ml-2 font-medium">
                   {allVoted ? "All voted — waiting for host to reveal" : `${votedCount}/${totalParticipants} voted`}
                 </span>
               )}
@@ -810,15 +922,15 @@ function PokerSessionContent() {
               {isHost && !revealed && (
                 <div className="ml-auto flex items-center gap-2">
                   {!canReveal && (
-                    <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-[#8c9bab] bg-white dark:bg-[#1d2125] border border-gray-200 dark:border-[#2c333a] px-2.5 py-1 rounded">
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground bg-secondary border border-border px-2.5 py-1 rounded-md font-medium">
                       {timerRunning
                         ? <><Timer size={12} /> Timer running</>
-                        : <><AlertTriangle size={12} className="text-orange-400" /> {votedCount}/{totalParticipants} voted</>
+                        : <><AlertTriangle size={12} className="text-warning" /> {votedCount}/{totalParticipants} voted</>
                       }
                     </span>
                   )}
                   {allVoted && !timerRunning && (
-                    <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-[#57d9a3] bg-green-50 dark:bg-[#006644]/20 border border-green-200 dark:border-[#57d9a3]/30 px-2.5 py-1 rounded font-medium">
+                    <span className="flex items-center gap-1.5 text-xs text-foreground bg-secondary border border-border px-2.5 py-1 rounded-md font-medium">
                       <Check size={12} /> Everyone voted!
                     </span>
                   )}
@@ -828,10 +940,10 @@ function PokerSessionContent() {
               {/* Already revealed badge */}
               {!isHost && (
                 <div className="ml-auto">
-                  <span className={`text-xs font-bold px-3 py-1 rounded-sm uppercase tracking-wide border ${
+                  <span className={`text-[10px] font-semibold px-2 py-1.5 rounded-md uppercase tracking-wide border ${
                     revealed
-                      ? "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700"
-                      : "bg-[#e3fcef] dark:bg-[#006644]/20 text-[#006644] dark:text-[#57d9a3] border-[#006644]/20 dark:border-[#57d9a3]/20"
+                      ? "bg-secondary text-foreground border-border"
+                      : "bg-secondary/50 text-muted-foreground border-border"
                   }`}>
                     {revealed ? <><EyeOff size={11} className="inline mr-1" />Revealed</> : `${votedCount}/${totalParticipants} Voted`}
                   </span>
@@ -843,30 +955,41 @@ function PokerSessionContent() {
             <div className="min-h-48 flex items-center justify-center">
               {revealed ? (
                 <div className="flex flex-wrap items-end justify-center gap-5 w-full py-4">
-                  {/* Average banner */}
+                  {/* Stats banner: Avg / Min / Max */}
                   {currentAverage && (
-                    <div className="w-full text-center mb-2">
-                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#172b4d] dark:text-[#b6c2cf] bg-[#e9f2ff] dark:bg-[#0052cc]/10 border border-[#cce0ff] dark:border-[#0052cc]/30 px-4 py-1.5 rounded-full">
-                        Average: <span className="text-xl font-bold text-[#0052cc] dark:text-[#4c9aff]">{currentAverage}</span>
-                      </span>
+                    <div className="w-full flex items-center justify-center gap-12 mb-6 flex-wrap animate-fade-in-up border-b border-border pb-6">
+                      <div className="flex flex-col items-center">
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Average</span>
+                        <span className="text-4xl font-black text-foreground drop-shadow-sm">{currentAverage}</span>
+                      </div>
+                      <div className="w-px h-10 bg-border" />
+                      <div className="flex flex-col items-center">
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Min</span>
+                        <span className="text-4xl font-black text-foreground drop-shadow-sm">{currentMin}</span>
+                      </div>
+                      <div className="w-px h-10 bg-border" />
+                      <div className="flex flex-col items-center">
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Max</span>
+                        <span className="text-4xl font-black text-foreground drop-shadow-sm">{currentMax}</span>
+                      </div>
                     </div>
                   )}
                   {Object.entries(groupedVotes)
                     .sort(([a], [b]) => Number(a) - Number(b))
-                    .map(([voteValue, players]) => (
-                      <div key={voteValue} className="flex flex-col items-center animate-in zoom-in duration-300">
-                        <span className="text-[10px] font-bold text-gray-500 dark:text-[#8c9bab] bg-gray-100 dark:bg-[#22272b] px-2 py-0.5 rounded-sm mb-2 uppercase border border-gray-200 dark:border-[#2c333a]">
+                    .map(([voteValue, players], idx) => (
+                      <div key={voteValue} className="flex flex-col items-center animate-bounce-in" style={{ animationDelay: `${idx * 0.08}s` }}>
+                        <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-2 py-0.5 rounded-md mb-2 uppercase border border-border tracking-wider">
                           {players.length}/{totalParticipants} → {voteValue}
                         </span>
-                        <div className="w-24 h-32 bg-white dark:bg-[#1d2125] border-2 border-[#0052cc] dark:border-[#4c9aff] rounded-xl shadow-md flex flex-col items-center justify-between p-3">
+                        <div className="w-[96px] h-[128px] bg-card border-2 border-primary rounded-xl shadow-sm flex flex-col items-center justify-between p-3">
                           <div className="flex justify-center -space-x-1.5 w-full">
                             {players.slice(0, 4).map((p, i) => (
-                              <div key={i} className="ring-2 ring-white dark:ring-[#1d2125] rounded-full" title={p.name}>
+                              <div key={i} className="ring-2 ring-card rounded-full" title={p.name}>
                                 {renderAvatar(p.name, "sm")}
                               </div>
                             ))}
                           </div>
-                          <span className="text-4xl font-bold text-[#172b4d] dark:text-[#b6c2cf]">{voteValue}</span>
+                          <span className="text-4xl font-bold text-foreground">{voteValue}</span>
                         </div>
                       </div>
                     ))}
@@ -876,11 +999,11 @@ function PokerSessionContent() {
                   {cardValues.map(v => (
                     <button
                       key={v}
-                      onClick={() => { setMyVote(v); castVote(participantName, v); }}
-                      className={`w-14 h-20 rounded-xl font-bold text-xl flex items-center justify-center transition-all duration-200 select-none ${
+                      onClick={() => { setMyVote(v); castVote(participantName, v as number | null); }}
+                      className={`w-[60px] h-[84px] rounded-xl font-bold text-xl flex items-center justify-center transition-all duration-200 select-none ${
                         myVote === v
-                          ? "border-2 border-[#0052cc] dark:border-[#4c9aff] bg-[#deebff] dark:bg-[#4c9aff]/20 text-[#0052cc] dark:text-[#4c9aff] -translate-y-3 shadow-lg shadow-[#0052cc]/20"
-                          : "border border-gray-200 dark:border-[#2c333a] bg-white dark:bg-[#1d2125] text-[#172b4d] dark:text-[#b6c2cf] hover:border-[#0052cc]/50 dark:hover:border-[#4c9aff]/50 hover:bg-[#f0f6ff] dark:hover:bg-[#0052cc]/5 hover:-translate-y-1 shadow-sm"
+                          ? "border-2 border-primary bg-primary/10 text-primary -translate-y-2 shadow-sm scale-110"
+                          : "border border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground hover:-translate-y-1 shadow-sm"
                       }`}
                     >
                       {v}
@@ -891,30 +1014,30 @@ function PokerSessionContent() {
             </div>
 
             {/* Backlog table */}
-            <div className="border-t border-gray-200 dark:border-[#2c333a] pt-5">
+            <div className="border-t border-border pt-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-base font-bold text-[#172b4d] dark:text-[#b6c2cf]">Game Backlog</h2>
-                  <span className="bg-[#deebff] dark:bg-[#0052cc]/20 text-[#0052cc] dark:text-[#4c9aff] text-[10px] font-bold px-2 py-0.5 rounded uppercase border border-[#cce0ff] dark:border-[#0052cc]/30">
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Backlog</h2>
+                  <span className="bg-secondary text-foreground text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase border border-border">
                     {estimatedIssuesCount}/{issues.length} done
                   </span>
-                  <span className="text-[#006644] dark:text-[#57d9a3] text-[10px] font-bold uppercase bg-[#e3fcef] dark:bg-[#006644]/20 px-2 py-0.5 rounded border border-[#006644]/20 dark:border-[#57d9a3]/20">
+                  <span className="text-foreground text-[10px] font-semibold uppercase bg-secondary px-2 py-0.5 rounded-md border border-border">
                     {totalStoryPoints} pts
                   </span>
                 </div>
                 {isHost && (
                   <button
                     onClick={handleQuickAddIssue}
-                    className="flex items-center gap-1 text-gray-700 dark:text-[#b6c2cf] bg-white dark:bg-[#1d2125] border border-gray-300 dark:border-[#2c333a] px-3 py-1.5 rounded text-xs font-medium hover:bg-gray-50 dark:hover:bg-[#22272b] transition-colors shadow-sm"
+                    className="flex items-center gap-1 text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-secondary hover:text-foreground transition-colors"
                   >
                     <Plus size={13} /> Add Issue
                   </button>
                 )}
               </div>
 
-              <div className="border border-gray-200 dark:border-[#2c333a] rounded-md bg-white dark:bg-[#1d2125] overflow-hidden shadow-sm">
+              <div className="border border-border rounded-xl bg-card overflow-hidden shadow-sm">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-[#f4f5f7] dark:bg-[#22272b] border-b border-gray-200 dark:border-[#2c333a] text-gray-500 dark:text-[#9fadbc] text-xs">
+                  <thead className="bg-secondary/50 border-b border-border text-muted-foreground text-[10px] uppercase tracking-wider">
                     <tr>
                       <th className="px-4 py-2.5 font-semibold w-14">Est.</th>
                       <th className="px-3 py-2.5 font-semibold w-20">Key</th>
@@ -930,28 +1053,28 @@ function PokerSessionContent() {
                         <tr
                           key={issue.id}
                           onClick={() => isHost && jumpToIssue(idx)}
-                          className={`border-b border-gray-100 dark:border-[#2c333a]/50 transition-colors ${
+                          className={`border-b border-border transition-colors ${
                             isActive
-                              ? "bg-[#e9f2ff] dark:bg-[#0052cc]/10"
+                              ? "bg-secondary"
                               : isHost
-                              ? "hover:bg-gray-50 dark:hover:bg-[#22272b] cursor-pointer"
+                              ? "hover:bg-secondary/50 cursor-pointer"
                               : ""
                           }`}
                         >
                           <td className="px-4 py-2 relative">
-                            <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${isActive ? "bg-[#0052cc]" : est ? "bg-[#36b37e]" : "bg-transparent"}`} />
+                            <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${isActive ? "bg-primary" : "bg-transparent"}`} />
                             {est ? (
-                              <span className="bg-[#e3fcef] dark:bg-[#006644]/20 text-[#006644] dark:text-[#57d9a3] w-7 h-6 flex items-center justify-center font-bold text-xs rounded border border-[#006644]/20">
+                              <span className="bg-secondary text-foreground w-7 h-6 flex items-center justify-center font-semibold text-xs rounded-md border border-border">
                                 {est}
                               </span>
                             ) : (
-                              <span className="bg-gray-100 dark:bg-[#22272b] text-gray-400 w-7 h-6 flex items-center justify-center text-xs rounded border border-gray-200 dark:border-[#2c333a]">—</span>
+                              <span className="bg-card text-muted-foreground w-7 h-6 flex items-center justify-center text-xs rounded-md border border-border">—</span>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-[#0052cc] dark:text-[#4c9aff] font-semibold text-xs">{issue.key}</td>
-                          <td className="px-3 py-2 text-[#172b4d] dark:text-[#b6c2cf] max-w-xs truncate">{issue.summary}</td>
+                          <td className={`px-3 py-2 font-medium text-xs ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{issue.key}</td>
+                          <td className={`px-3 py-2 max-w-xs truncate ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{issue.summary}</td>
                           <td className="px-3 py-2">
-                            <span className="text-[10px] font-semibold text-gray-600 dark:text-[#b6c2cf] bg-[#dfe1e6] dark:bg-[#2c333a] px-1.5 py-0.5 rounded uppercase">
+                            <span className="text-[10px] font-semibold text-muted-foreground bg-secondary border border-border px-1.5 py-0.5 rounded-md uppercase tracking-wider">
                               {issue.statusCategory || "OPEN"}
                             </span>
                           </td>
@@ -959,7 +1082,7 @@ function PokerSessionContent() {
                       );
                     })}
                     {issues.length === 0 && (
-                      <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400 text-sm">No issues loaded.</td></tr>
+                      <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground text-sm">No issues loaded.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -968,25 +1091,32 @@ function PokerSessionContent() {
           </div>
 
           {/* RIGHT SIDEBAR — participants */}
-          <div className="w-14 border-l border-gray-200 dark:border-[#2c333a] bg-[#fafbfc] dark:bg-[#111214] flex flex-col items-center py-4 gap-2 shrink-0">
-            <div className="flex items-center gap-1 text-gray-500 dark:text-[#8c9bab] mb-2" title="Participants">
-              <Users size={16} />
-              <span className="text-xs font-bold">{participants.length}</span>
+          <div className="w-16 border-l border-border bg-secondary/30 flex flex-col items-center py-4 gap-2.5 shrink-0 z-10 sticky top-0 h-full">
+            <div className="flex items-center gap-1 text-muted-foreground mb-2" title="Participants">
+              <Users size={14} />
+              <span className="text-xs font-semibold">{totalParticipants}</span>
             </div>
-            {participants.map((player, i) => {
+            {(participants.length > 0 ? participants : [{ name: participantName, isHost: isHost }]).map((player, i) => {
               const hasVoted = votes[player.name] !== undefined && votes[player.name] !== null;
               return (
-                <div key={i} className="relative group" title={`${player.name}${hasVoted ? " (voted)" : " (waiting)"}`}>
+                <div key={i} className="relative group" title={`${player.name}${player.isHost ? " (Host)" : ""}${hasVoted ? " — voted" : " — waiting"}`}>
                   {renderAvatar(player.name, "md")}
-                  <div className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#111214] flex items-center justify-center ${hasVoted ? "bg-[#36b37e] dark:bg-[#57d9a3]" : "bg-gray-300 dark:bg-[#8c9bab]"}`}>
+                  {/* Vote status indicator */}
+                  <div className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card flex items-center justify-center ${hasVoted ? "bg-primary" : "bg-muted"}`}>
                     {hasVoted
-                      ? <Check size={7} className="text-white dark:text-[#111214]" />
-                      : <span className="block w-1 h-1 bg-white dark:bg-[#111214] rounded-full" />
+                      ? <Check size={7} className="text-primary-foreground" />
+                      : <span className="block w-1.5 h-1.5 bg-card rounded-full" />
                     }
                   </div>
+                  {/* Host crown badge */}
+                  {player.isHost && (
+                    <div className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full bg-warning border-2 border-card flex items-center justify-center">
+                      <Crown size={7} className="text-white" />
+                    </div>
+                  )}
                   {/* Name tooltip on hover */}
-                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-[#172b4d] dark:bg-[#b6c2cf] text-white dark:text-[#172b4d] text-xs font-medium px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                    {player.name}
+                  <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground text-xs font-medium px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 border border-border">
+                    {player.name}{player.isHost ? " ★" : ""}
                   </div>
                 </div>
               );
@@ -1001,7 +1131,7 @@ function PokerSessionContent() {
 export default function PokerSession() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#f4f5f7] dark:bg-[#111214] flex items-center justify-center text-gray-500">
+      <div className="min-h-screen page-bg flex items-center justify-center text-muted-foreground">
         <Loader2 size={20} className="animate-spin mr-2" /> Loading session…
       </div>
     }>

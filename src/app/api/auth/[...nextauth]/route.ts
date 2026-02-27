@@ -58,26 +58,19 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ profile }) {
-  console.log("--- AUTH ATTEMPT ---");
-  const email = profile?.email?.toLowerCase();
-  console.log("Attempting email:", email);
+      const email = profile?.email?.toLowerCase();
+      if (!email) return "/auth/error?error=NoEmail";
 
-  if (!email) return "/auth/error?error=NoEmail";
-  
-  const isDomainAllowed = ALLOWED_DOMAINS.some((domain) => 
-    email.endsWith(`@${domain.toLowerCase()}`)
-  );
+      const isDomainAllowed = ALLOWED_DOMAINS.some((domain) =>
+        email.endsWith(`@${domain.toLowerCase()}`)
+      );
 
-  console.log("Domain Allowed?", isDomainAllowed);
+      if (!isDomainAllowed) {
+        return false;
+      }
 
-  if (!isDomainAllowed) {
-    console.log("❌ ACCESS DENIED: Not a Provus email.");
-    return false; // Returning FALSE explicitly kills the session creation
-  }
-
-  console.log("✅ ACCESS GRANTED: Proceeding to Sync...");
-  return true; 
-},
+      return true;
+    },
 
     async jwt({ token, user }) {
       // On initial sign-in, fetch the true role from the database
