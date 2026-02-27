@@ -116,11 +116,141 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+/* ─── Enterprise Animations ─────────────────────────────────────────────── */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+@keyframes bounceIn {
+  0%   { opacity: 0; transform: scale(0.3); }
+  50%  { opacity: 1; transform: scale(1.05); }
+  70%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out both;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out both;
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) both;
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 20s linear infinite;
+}
+
+/* Staggered delays for lists */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+/* ─── Enterprise Card Hover (Vercel Style) ─────────────────────────────── */
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: var(--border); /* Optional subtle brighten could go here */
+}
+:is(.dark) .card-hover:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border-color: #333;
+}
+
+/* ─── Enterprise Input Focus (Vercel Style) ────────────────────────────── */
+
+.input-enterprise {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.input-enterprise:focus {
+  border-color: #111;
+  box-shadow: 0 0 0 1px #111;
+}
+:is(.dark) .input-enterprise:focus {
+  border-color: #ededed;
+  box-shadow: 0 0 0 1px #ededed;
+}
+
+/* ─── Gradient Brand Accent (Vercel Style Monochrome) ───────────────────── */
+
+.brand-gradient {
+  background: linear-gradient(135deg, #111 0%, #666 100%);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, #111 0%, #666 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+:is(.dark) .brand-gradient {
+  background: linear-gradient(135deg, #fff 0%, #999 100%);
+}
+
+:is(.dark) .brand-gradient-text {
+  background: linear-gradient(135deg, #fff 0%, #999 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Smooth page background (Vercel Style Flat) ────────────────────────── */
+
+.page-bg {
+  background: #fafafa;
+}
+:is(.dark) .page-bg {
+  background: #0a0a0a;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
